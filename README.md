@@ -39,7 +39,7 @@ Please be sure to keep a signed copy for your records.
 
 ## LICENSE
 
-Copyright 2015 Symantec Corporation.
+Copyright 2018 Symantec Corporation.
 
 Licensed under the Apache License, Version 2.0 (the “License”); you
 may not use this file except in compliance with the License.
