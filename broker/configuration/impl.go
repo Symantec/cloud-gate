@@ -1,12 +1,12 @@
 package configuration
 
 import (
-	"encoding/json"
 	"io"
 	"time"
 
 	"github.com/Symantec/Dominator/lib/configwatch"
 	"github.com/Symantec/Dominator/lib/log"
+	"gopkg.in/yaml.v2"
 )
 
 func watch(configUrl string, checkInterval time.Duration,
@@ -31,7 +31,7 @@ func watchLoop(configChannel chan<- *Configuration,
 
 func decode(reader io.Reader) (interface{}, error) {
 	var config Configuration
-	decoder := json.NewDecoder(reader)
+	decoder := yaml.NewDecoder(reader)
 	if err := decoder.Decode(&config); err != nil {
 		return nil, err
 	}

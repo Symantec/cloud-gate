@@ -18,7 +18,7 @@ var (
 	configurationCheckInterval = flag.Duration("configurationCheckInterval",
 		time.Minute*5, "Configuration check interval")
 	configurationUrl = flag.String("configurationUrl",
-		"file:///etc/cloud-gate/conf.json", "URL containing configuration")
+		"file:///etc/cloud-gate/conf.yml", "URL containing configuration")
 	portNum = flag.Uint("portNum", 443,
 		"Port number to allocate and listen on for HTTP/RPC")
 )
