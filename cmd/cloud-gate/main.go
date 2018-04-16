@@ -43,6 +43,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Unable to create http server: %s\n", err)
 	}
+	webServer.AddHtmlWriter(logger)
 	for config := range configChannel {
 		logger.Println("Received new configuration")
 		if err := webServer.UpdateConfiguration(config); err != nil {
