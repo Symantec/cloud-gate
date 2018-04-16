@@ -2,6 +2,7 @@ package httpd
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 
@@ -10,10 +11,15 @@ import (
 	"github.com/Symantec/cloud-gate/broker/configuration"
 )
 
+type HtmlWriter interface {
+	WriteHtml(writer io.Writer)
+}
+
 type Server struct {
-	brokers map[string]broker.Broker
-	config  *configuration.Configuration
-	logger  log.DebugLogger
+	brokers     map[string]broker.Broker
+	config      *configuration.Configuration
+	htmlWriters []HtmlWriter
+	logger      log.DebugLogger
 }
 
 func StartServer(portNum uint, brokers map[string]broker.Broker,
@@ -26,9 +32,14 @@ func StartServer(portNum uint, brokers map[string]broker.Broker,
 		brokers: brokers,
 		logger:  logger,
 	}
-	// http.HandleFunc("/", server.rootHandler)
+	http.HandleFunc("/", server.rootHandler)
+	http.HandleFunc("/status", server.statusHandler)
 	go http.Serve(listener, nil)
 	return server, nil
+}
+
+func (s *Server) AddHtmlWriter(htmlWriter HtmlWriter) {
+	s.htmlWriters = append(s.htmlWriters, htmlWriter)
 }
 
 func (s *Server) UpdateConfiguration(
