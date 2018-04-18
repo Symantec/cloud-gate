@@ -34,15 +34,20 @@ func main() {
 	configChannel, err := configuration.Watch(*configurationUrl,
 		*configurationCheckInterval, logger)
 	if err != nil {
-		logger.Fatalf("Cannot watch for configuration: %s\n", err)
+		fmt.Fprintln(os.Stderr, "Cannot watch for configuration:", err)
+		os.Exit(1)
 	}
 	brokers := map[string]broker.Broker{
 		"aws": aws.New(logger),
 	}
 	webServer, err := httpd.StartServer(*portNum, brokers, logger)
 	if err != nil {
-		logger.Fatalf("Unable to create http server: %s\n", err)
+		fmt.Fprintln(os.Stderr, "Unable to create HTTP server:", err)
+		os.Exit(1)
+	} else {
+		fmt.Printf("HTTP server started, status page at http://localhost:%d/status\n", *portNum)
 	}
+
 	webServer.AddHtmlWriter(logger)
 	for config := range configChannel {
 		logger.Println("Received new configuration")
