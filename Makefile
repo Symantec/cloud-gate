@@ -1,3 +1,6 @@
+GOPATH ?= ${shell go env GOPATH}
+
+
 all:
 	@cd $(GOPATH)/src; go install github.com/Symantec/cloud-gate/cmd/*
 
