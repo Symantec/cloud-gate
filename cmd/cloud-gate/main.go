@@ -24,15 +24,15 @@ var (
 )
 
 func main() {
-	flag.Parse()
-	tricorder.RegisterFlags()
 	if os.Geteuid() == 0 {
 		fmt.Fprintln(os.Stderr, "Do not run the cloud-gate server as root")
 		os.Exit(1)
 	}
+	flag.Parse()
+	tricorder.RegisterFlags()
 	logger := serverlogger.New("")
-	configChannel, err := configuration.Watch(*configurationUrl,
-		*configurationCheckInterval, logger)
+	configChannel, err := configuration.Watch(
+		*configurationUrl, *configurationCheckInterval, logger)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Cannot watch for configuration:", err)
 		os.Exit(1)
