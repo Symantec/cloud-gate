@@ -8,6 +8,7 @@ import (
 
 	"github.com/Symantec/Dominator/lib/log"
 	"github.com/Symantec/cloud-gate/broker"
+	"github.com/Symantec/cloud-gate/broker/appconfiguration"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 )
 
@@ -17,20 +18,22 @@ type HtmlWriter interface {
 
 type Server struct {
 	brokers     map[string]broker.Broker
+	appConfig   *appconfiguration.AppConfiguration
 	config      *configuration.Configuration
 	htmlWriters []HtmlWriter
 	logger      log.DebugLogger
 }
 
-func StartServer(portNum uint, brokers map[string]broker.Broker,
+func StartServer(appConfig *appconfiguration.AppConfiguration, brokers map[string]broker.Broker,
 	logger log.DebugLogger) (*Server, error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", portNum))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", appConfig.Base.ListenPort))
 	if err != nil {
 		return nil, err
 	}
 	server := &Server{
-		brokers: brokers,
-		logger:  logger,
+		brokers:   brokers,
+		logger:    logger,
+		appConfig: appConfig,
 	}
 	http.HandleFunc("/", server.rootHandler)
 	http.HandleFunc("/status", server.statusHandler)
