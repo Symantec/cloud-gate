@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -14,8 +13,6 @@ import (
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/httpd"
 	"github.com/Symantec/tricorder/go/tricorder"
-
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -41,16 +38,6 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Cannot watch for configuration: %s\n", err)
 	}
-	base := appconfiguration.BaseConfig{
-		ListenPort:      123,
-		TLSCertFilename: "foo",
-		TLSKeyFilename:  "bar",
-	}
-	appConfig2 := appconfiguration.AppConfiguration{Base: base}
-
-	appbytes, _ := yaml.Marshal(appConfig2)
-
-	log.Printf(string(appbytes[:]))
 
 	appConfig, err := appconfiguration.LoadVerifyConfigFile(*configFilename)
 	if err != nil {
