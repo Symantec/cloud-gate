@@ -44,6 +44,8 @@ func main() {
 		logger.Fatalf("Cannot load Configuration: %s\n", err)
 	}
 
+	logger.Debugf(1, "appconfig=+%v", appConfig)
+
 	brokers := map[string]broker.Broker{
 		"aws": aws.New(logger),
 	}
