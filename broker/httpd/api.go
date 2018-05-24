@@ -57,7 +57,7 @@ func StartServer(appConfig *appconfiguration.AppConfiguration, brokers map[strin
 	go func() {
 		err := statusServer.Serve(statusListener)
 		if err != nil {
-			panic(err)
+			logger.Fatalf("Failed to start status server, err=%s", err)
 		}
 	}()
 
@@ -81,7 +81,7 @@ func StartServer(appConfig *appconfiguration.AppConfiguration, brokers map[strin
 	go func() {
 		err := serviceServer.ServeTLS(serviceListener, appConfig.Base.TLSCertFilename, appConfig.Base.TLSKeyFilename)
 		if err != nil {
-			panic(err)
+			logger.Fatalf("Failed to start service server, err=%s", err)
 		}
 	}()
 

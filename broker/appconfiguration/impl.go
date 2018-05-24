@@ -7,6 +7,9 @@ import (
 	"os"
 )
 
+const defaultServicePort = 443
+const defaultStatusPort = 6930
+
 func LoadVerifyConfigFile(configFilename string) (*AppConfiguration, error) {
 	var config AppConfiguration
 	if _, err := os.Stat(configFilename); os.IsNotExist(err) {
@@ -23,5 +26,13 @@ func LoadVerifyConfigFile(configFilename string) (*AppConfiguration, error) {
 		err = errors.New("Cannot parse config file")
 		return nil, err
 	}
+	// setup defaults
+	if config.Base.StatusPort == 0 {
+		config.Base.StatusPort = defaultStatusPort
+	}
+	if config.Base.ServicePort == 0 {
+		config.Base.ServicePort = defaultServicePort
+	}
+
 	return &config, nil
 }

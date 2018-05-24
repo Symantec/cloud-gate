@@ -21,8 +21,6 @@ var (
 		time.Minute*5, "Configuration check interval")
 	accountConfigurationUrl = flag.String("accountConfigurationUrl",
 		"file:///etc/cloud-gate/accounts.yml", "URL containing account configuration")
-	portNum = flag.Uint("portNum", 4443,
-		"Port number to allocate and listen on for HTTP/RPC")
 )
 
 func main() {
