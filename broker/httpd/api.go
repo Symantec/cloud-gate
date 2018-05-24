@@ -7,16 +7,25 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/Symantec/Dominator/lib/log"
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/appconfiguration"
 	"github.com/Symantec/cloud-gate/broker/configuration"
+	"github.com/cviecco/go-simple-oidc-auth/authhandler"
+
+	"golang.org/x/net/context"
 )
 
 type HtmlWriter interface {
 	WriteHtml(writer io.Writer)
+}
+
+type AuthCookie struct {
+	Username  string
+	ExpiresAt time.Time
 }
 
 type Server struct {
@@ -26,6 +35,29 @@ type Server struct {
 	htmlWriters  []HtmlWriter
 	htmlTemplate *template.Template
 	logger       log.DebugLogger
+	cookieMutex  sync.Mutex
+	authCookie   map[string]AuthCookie
+	authSource   *authhandler.SimpleOIDCAuth
+}
+
+const secondsBetweenCleanup = 60
+const loginPath = "/login/"
+const oidcCallbackPath = "/auth/oidcsimple/callback"
+const cookieExpirationHours = 3
+const authCookieName = "auth_cookie"
+
+func (s *Server) performStateCleanup(secsBetweenCleanup int) {
+	for {
+		s.cookieMutex.Lock()
+		for key, authCookie := range s.authCookie {
+			if authCookie.ExpiresAt.Before(time.Now()) {
+				delete(s.authCookie, key)
+			}
+		}
+		s.cookieMutex.Unlock()
+		time.Sleep(time.Duration(secsBetweenCleanup) * time.Second)
+	}
+
 }
 
 func StartServer(appConfig *appconfiguration.AppConfiguration, brokers map[string]broker.Broker,
@@ -45,6 +77,9 @@ func StartServer(appConfig *appconfiguration.AppConfiguration, brokers map[strin
 		logger:    logger,
 		appConfig: appConfig,
 	}
+	server.authCookie = make(map[string]AuthCookie)
+	go server.performStateCleanup(secondsBetweenCleanup)
+
 	// load templates
 	server.htmlTemplate = template.New("main")
 	/// Load the oter built in templates
@@ -62,6 +97,14 @@ func StartServer(appConfig *appconfiguration.AppConfiguration, brokers map[strin
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.consoleAccessHandler)
 	serviceMux.HandleFunc("/static/", staticHandler)
+
+	//setup openidc auth
+	ctx := context.Background()
+	simpleOidcAuth := authhandler.NewSimpleOIDCAuth(&ctx, appConfig.OpenID.ClientID, appConfig.OpenID.ClientSecret, appConfig.OpenID.ProviderURL)
+	//authhandler.NewSimpleOIDCAuthFromConfig(&openidConfigFilename, nil)
+	server.authSource = simpleOidcAuth
+	serviceMux.Handle(oidcCallbackPath, simpleOidcAuth.Handler(http.HandlerFunc(server.consoleAccessHandler)))
+	serviceMux.Handle(loginPath, simpleOidcAuth.Handler(http.HandlerFunc(server.loginHandler)))
 
 	statusServer := &http.Server{
 		ReadTimeout:  5 * time.Second,
