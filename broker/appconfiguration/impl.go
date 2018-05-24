@@ -2,10 +2,9 @@ package appconfiguration
 
 import (
 	"errors"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
-	//"golang.org/x/oauth2"
-	"gopkg.in/yaml.v2"
 )
 
 func LoadVerifyConfigFile(configFilename string) (*AppConfiguration, error) {
