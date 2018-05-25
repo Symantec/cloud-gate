@@ -1,4 +1,4 @@
-package appconfiguration
+package staticconfiguration
 
 import (
 	"errors"
@@ -9,9 +9,10 @@ import (
 
 const defaultServicePort = 443
 const defaultStatusPort = 6930
+const defaultAccountConfigurationUrl = "file:///etc/cloud-gate/accounts.yml"
 
-func LoadVerifyConfigFile(configFilename string) (*AppConfiguration, error) {
-	var config AppConfiguration
+func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
+	var config StaticConfiguration
 	if _, err := os.Stat(configFilename); os.IsNotExist(err) {
 		err = errors.New("mising config file failure")
 		return nil, err
@@ -32,6 +33,9 @@ func LoadVerifyConfigFile(configFilename string) (*AppConfiguration, error) {
 	}
 	if config.Base.ServicePort == 0 {
 		config.Base.ServicePort = defaultServicePort
+	}
+	if len(config.Base.AccountConfigurationUrl) == 0 {
+		config.Base.AccountConfigurationUrl = defaultAccountConfigurationUrl
 	}
 
 	return &config, nil
