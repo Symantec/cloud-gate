@@ -10,6 +10,7 @@ import (
 const defaultServicePort = 443
 const defaultStatusPort = 6930
 const defaultAccountConfigurationUrl = "file:///etc/cloud-gate/accounts.yml"
+const defaultAccountConfigurationCheckInterval = "300s"
 
 func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 	var config StaticConfiguration
@@ -36,6 +37,9 @@ func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 	}
 	if len(config.Base.AccountConfigurationUrl) == 0 {
 		config.Base.AccountConfigurationUrl = defaultAccountConfigurationUrl
+	}
+	if len(config.Base.AccountConfigurationCheckInterval) == 0 {
+		config.Base.AccountConfigurationCheckInterval = defaultAccountConfigurationCheckInterval
 	}
 
 	return &config, nil

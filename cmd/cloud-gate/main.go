@@ -16,9 +16,7 @@ import (
 )
 
 var (
-	configFilename             = flag.String("config", "appConfig.yml", "Configuration filename")
-	configurationCheckInterval = flag.Duration("configurationCheckInterval",
-		time.Minute*5, "Configuration check interval")
+	configFilename = flag.String("config", "/etc/cloud-gate/staticConfig.yml", "Configuration filename")
 )
 
 func main() {
@@ -36,8 +34,13 @@ func main() {
 	}
 
 	logger.Debugf(1, "staticconfig=+%v", staticConfig)
+	configurationCheckInterval, err := time.ParseDuration(staticConfig.Base.AccountConfigurationCheckInterval)
+	if err != nil {
+		logger.Fatalf("Cannot parse configuraitonCheckInterval: %s\n", err)
+	}
+
 	configChannel, err := configuration.Watch(staticConfig.Base.AccountConfigurationUrl,
-		*configurationCheckInterval, logger)
+		configurationCheckInterval, logger)
 	if err != nil {
 		logger.Fatalf("Cannot watch for configuration: %s\n", err)
 	}
