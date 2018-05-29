@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	configFilename = flag.String("config", "/etc/cloud-gate/staticConfig.yml", "Configuration filename")
+	configFilename = flag.String("config", "/etc/cloud-gate/static-config.yml", "Configuration filename")
 )
 
 func main() {
