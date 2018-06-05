@@ -4,23 +4,18 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/Symantec/Dominator/lib/log/serverlogger"
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/aws"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/httpd"
+	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
 	"github.com/Symantec/tricorder/go/tricorder"
 )
 
 var (
-	configurationCheckInterval = flag.Duration("configurationCheckInterval",
-		time.Minute*5, "Configuration check interval")
-	configurationUrl = flag.String("configurationUrl",
-		"file:///etc/cloud-gate/conf.yml", "URL containing configuration")
-	portNum = flag.Uint("portNum", 443,
-		"Port number to allocate and listen on for HTTP/RPC")
+	configFilename = flag.String("config", "/etc/cloud-gate/static-config.yml", "Configuration filename")
 )
 
 func main() {
@@ -31,15 +26,24 @@ func main() {
 		os.Exit(1)
 	}
 	logger := serverlogger.New("")
-	configChannel, err := configuration.Watch(*configurationUrl,
-		*configurationCheckInterval, logger)
+
+	staticConfig, err := staticconfiguration.LoadVerifyConfigFile(*configFilename)
+	if err != nil {
+		logger.Fatalf("Cannot load Configuration: %s\n", err)
+	}
+
+	logger.Debugf(1, "staticconfig=+%v", staticConfig)
+	configChannel, err := configuration.Watch(staticConfig.Base.AccountConfigurationUrl,
+		staticConfig.Base.AccountConfigurationCheckInterval, logger)
 	if err != nil {
 		logger.Fatalf("Cannot watch for configuration: %s\n", err)
 	}
+
 	brokers := map[string]broker.Broker{
 		"aws": aws.New(logger),
 	}
-	webServer, err := httpd.StartServer(*portNum, brokers, logger)
+
+	webServer, err := httpd.StartServer(staticConfig, brokers, logger)
 	if err != nil {
 		logger.Fatalf("Unable to create http server: %s\n", err)
 	}
