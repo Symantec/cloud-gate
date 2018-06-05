@@ -2,7 +2,6 @@ package staticconfiguration
 
 import (
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/Symantec/cloud-gate/lib/constants"
@@ -35,9 +34,9 @@ func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 		config.Base.AccountConfigurationUrl =
 			constants.DefaultAccountConfigurationUrl
 	}
-	if len(config.Base.AccountConfigurationCheckInterval) == 0 {
+	if config.Base.AccountConfigurationCheckInterval == 0 {
 		config.Base.AccountConfigurationCheckInterval =
-			fmt.Sprintf("%s", constants.DefaultAccountConfigurationCheckInterval)
+			constants.DefaultAccountConfigurationCheckInterval
 	}
 
 	return &config, nil
