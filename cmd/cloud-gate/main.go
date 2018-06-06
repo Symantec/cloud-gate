@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/Symantec/Dominator/lib/log/serverlogger"
 	"github.com/Symantec/cloud-gate/broker"
@@ -34,13 +33,8 @@ func main() {
 	}
 
 	logger.Debugf(1, "staticconfig=+%v", staticConfig)
-	configurationCheckInterval, err := time.ParseDuration(staticConfig.Base.AccountConfigurationCheckInterval)
-	if err != nil {
-		logger.Fatalf("Cannot parse configuraitonCheckInterval: %s\n", err)
-	}
-
 	configChannel, err := configuration.Watch(staticConfig.Base.AccountConfigurationUrl,
-		configurationCheckInterval, logger)
+		staticConfig.Base.AccountConfigurationCheckInterval, logger)
 	if err != nil {
 		logger.Fatalf("Cannot watch for configuration: %s\n", err)
 	}

@@ -34,7 +34,7 @@ func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 		config.Base.AccountConfigurationUrl =
 			constants.DefaultAccountConfigurationUrl
 	}
-	if len(config.Base.AccountConfigurationCheckInterval) == 0 {
+	if config.Base.AccountConfigurationCheckInterval == 0 {
 		config.Base.AccountConfigurationCheckInterval =
 			constants.DefaultAccountConfigurationCheckInterval
 	}
