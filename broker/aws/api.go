@@ -18,5 +18,10 @@ func New(logger log.DebugLogger) *Broker {
 
 func (b *Broker) UpdateConfiguration(
 	config *configuration.Configuration) error {
+	if config == nil {
+		return errors.New("nill config passed")
+	}
+
+	b.logger.Debugf(1, "config=%+v", *config)
 	return errors.New("not implemented")
 }
