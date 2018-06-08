@@ -14,6 +14,7 @@ import (
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
+	"github.com/Symantec/cloud-gate/lib/userinfo"
 	"github.com/cviecco/go-simple-oidc-auth/authhandler"
 
 	"golang.org/x/net/context"
@@ -38,6 +39,7 @@ type Server struct {
 	authCookie   map[string]AuthCookie
 	authSource   *authhandler.SimpleOIDCAuth
 	staticConfig *staticconfiguration.StaticConfiguration
+	userInfo     userinfo.UserInfo
 }
 
 const secondsBetweenCleanup = 60
@@ -60,7 +62,9 @@ func (s *Server) performStateCleanup(secsBetweenCleanup int) {
 
 }
 
-func StartServer(staticConfig *staticconfiguration.StaticConfiguration, brokers map[string]broker.Broker,
+func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
+	userInfo userinfo.UserInfo,
+	brokers map[string]broker.Broker,
 	logger log.DebugLogger) (*Server, error) {
 
 	statusListener, err := net.Listen("tcp", fmt.Sprintf(":%d", staticConfig.Base.StatusPort))
@@ -74,6 +78,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration, brokers 
 	server := &Server{
 		brokers:      brokers,
 		logger:       logger,
+		userInfo:     userInfo,
 		staticConfig: staticConfig,
 	}
 	server.authCookie = make(map[string]AuthCookie)

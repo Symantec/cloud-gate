@@ -28,6 +28,7 @@ func newUserInfo(urllist []string, bindUsername string, bindPassword string,
 	userinfo.userSearchBaseDNs = userSearchBaseDNs
 	userinfo.timeoutSecs = timeoutSecs
 	userinfo.rootCAs = rootCAs
+	userinfo.logger = logger
 	return &userinfo, nil
 }
 
@@ -44,7 +45,7 @@ func (uinfo *UserInfo) extractCNFromDNString(input []string, groupPrefix string)
 		if len(matches) == 2 {
 			output = append(output, matches[1])
 		} else {
-			uinfo.logger.Debugf(1, "dn='%s' matches=%v", dn, matches)
+			uinfo.logger.Debugf(5, "Not matching dn='%s' matches=%v", dn, matches)
 			//output = append(output, dn)
 		}
 	}
@@ -53,9 +54,10 @@ func (uinfo *UserInfo) extractCNFromDNString(input []string, groupPrefix string)
 }
 
 func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) ([]string, error) {
-	attributesOfInterest := []string{"membeOf", "mail"}
+	attributesOfInterest := []string{"memberOf", "mail"}
 	ldapSuccess := false
 	var userAttributes map[string][]string
+	//userAttributes = make(map[string][]string)
 	var err error
 	for _, ldapUrl := range uinfo.ldapURL {
 		userAttributes, err = authutil.GetLDAPUserAttributes(*ldapUrl, uinfo.bindUsername, uinfo.bindPassword,
@@ -76,6 +78,7 @@ func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) ([]st
 	if groupPrefix != nil {
 		groupPrefixString = *groupPrefix
 	}
+	uinfo.logger.Debugf(2, "userAttributes=%+v", userAttributes)
 	groupsOfInterest, err := uinfo.extractCNFromDNString(userAttributes["memberOf"], groupPrefixString)
 	if err != nil {
 		return nil, err

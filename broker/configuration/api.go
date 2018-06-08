@@ -10,6 +10,7 @@ type AWSAccount struct {
 	Name        string `yaml:"name"`
 	AccountID   string `yaml:"account_id"`
 	DisplayName string `yaml:"display_name"`
+	GroupName   string `yaml:"group_name"`
 }
 
 type AWSConfiguration struct {
