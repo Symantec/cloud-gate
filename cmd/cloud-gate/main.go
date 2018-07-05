@@ -54,7 +54,7 @@ func main() {
 	}
 
 	brokers := map[string]broker.Broker{
-		"aws": aws.New(userInfo, logger),
+		"aws": aws.New(userInfo, staticConfig.Base.AWSCredentialsFilename, logger),
 	}
 
 	webServer, err := httpd.StartServer(staticConfig, userInfo, brokers, logger)

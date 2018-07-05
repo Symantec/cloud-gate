@@ -10,13 +10,18 @@ import (
 )
 
 type Broker struct {
-	config   *configuration.Configuration
-	userInfo userinfo.UserInfo
-	logger   log.DebugLogger
+	config              *configuration.Configuration
+	userInfo            userinfo.UserInfo
+	credentialsFilename string
+	logger              log.DebugLogger
 }
 
-func New(userInfo userinfo.UserInfo, logger log.DebugLogger) *Broker {
-	return &Broker{userInfo: userInfo, logger: logger}
+func New(userInfo userinfo.UserInfo,
+	credentialsFilename string,
+	logger log.DebugLogger) *Broker {
+	return &Broker{userInfo: userInfo,
+		credentialsFilename: credentialsFilename,
+		logger:              logger}
 }
 
 func (b *Broker) UpdateConfiguration(
@@ -26,7 +31,7 @@ func (b *Broker) UpdateConfiguration(
 	}
 	b.logger.Debugf(1, "config=%+v", *config)
 	b.config = config
-	return errors.New("not implemented")
+	return nil
 }
 
 func (b *Broker) GetUserAllowedAccounts(username string) ([]broker.PermittedAccount, error) {

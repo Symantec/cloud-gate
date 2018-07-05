@@ -9,6 +9,7 @@ type BaseConfig struct {
 	StatusPort                        uint16        `yaml:"status_port"`
 	TLSCertFilename                   string        `yaml:"tls_cert_filename"`
 	TLSKeyFilename                    string        `yaml:"tls_key_filename"`
+	AWSCredentialsFilename            string        `yaml:"aws_credentials_filename"`
 	AccountConfigurationUrl           string        `yaml:"account_configuration_url"`
 	AccountConfigurationCheckInterval time.Duration `yaml:"account_configuration_check_interval"`
 }
