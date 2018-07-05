@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Symantec/cloud-gate/broker"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -24,6 +25,18 @@ func (b *Broker) accountIDFromName(accountName string) (string, error) {
 	for _, account := range b.config.AWS.Account {
 		if account.Name == accountName {
 			return account.AccountID, nil
+		}
+	}
+	return "", errors.New("accountNAme not found")
+}
+
+func (b *Broker) accountHumanNameFromName(accountName string) (string, error) {
+	for _, account := range b.config.AWS.Account {
+		if account.Name == accountName {
+			if account.DisplayName != "" {
+				return account.DisplayName, nil
+			}
+			return account.Name, nil
 		}
 	}
 	return "", errors.New("accountNAme not found")
@@ -144,6 +157,17 @@ func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
 	return b.withSessionGetAWSRoleList(accountSession)
 }
 
+func stringIntersectionNoDups(set1, set2 []string) (intersection []string) {
+	for _, v1 := range set1 {
+		for _, v2 := range set2 {
+			if v1 == v2 {
+				intersection = append(intersection, v1)
+			}
+		}
+	}
+	return intersection
+}
+
 func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker.PermittedAccount, error) {
 	var groupToAccountName map[string]string
 	groupToAccountName = make(map[string]string)
@@ -173,7 +197,19 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 			allowedRoles[accountGroupName] = append(allowedRoles[accountGroupName], matches[2])
 		}
 	}
-	b.logger.Debugf(1, "allowedRoles=%v", allowedRoles)
+	b.logger.Debugf(1, "allowedRoles(pre)=%v", allowedRoles)
+	//now add extra roles:
+	for _, account := range b.config.AWS.Account {
+		if len(account.ExtraUserRoles) < 1 {
+			continue
+		}
+		if currentValue, ok := allowedRoles[account.Name]; ok {
+			allowedRoles[account.Name] = append(currentValue, account.ExtraUserRoles...)
+		} else {
+			allowedRoles[account.Name] = account.ExtraUserRoles
+		}
+	}
+	b.logger.Debugf(1, "allowedRoles(post)=%v", allowedRoles)
 
 	var permittedAccounts []broker.PermittedAccount
 	for groupName, allowedRoles := range allowedRoles {
@@ -181,12 +217,21 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 		if !ok {
 			return nil, errors.New("Cannot map to accountname for some username")
 		}
-		_, err := b.getAWSRolesForAccount(accountName)
+		rolesForAccount, err := b.getAWSRolesForAccount(accountName)
 		if err != nil {
 			return nil, err
 		}
-		sort.Strings(allowedRoles)
-		var account = broker.PermittedAccount{Name: accountName, HumanName: accountName, PermittedRoleName: allowedRoles}
+		allowedAndAvailable := stringIntersectionNoDups(rolesForAccount, allowedRoles)
+		sort.Strings(allowedAndAvailable)
+
+		displayName, err := b.accountHumanNameFromName(accountName)
+		if err != nil {
+			return nil, err
+		}
+
+		var account = broker.PermittedAccount{Name: accountName,
+			HumanName:         displayName,
+			PermittedRoleName: allowedAndAvailable}
 		permittedAccounts = append(permittedAccounts, account)
 	}
 	b.logger.Debugf(1, "permittedAccounts=%+v", permittedAccounts)

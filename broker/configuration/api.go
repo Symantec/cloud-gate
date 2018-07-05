@@ -7,10 +7,11 @@ import (
 )
 
 type AWSAccount struct {
-	Name        string `yaml:"name"`
-	AccountID   string `yaml:"account_id"`
-	DisplayName string `yaml:"display_name"`
-	GroupName   string `yaml:"group_name"`
+	Name           string   `yaml:"name"`
+	AccountID      string   `yaml:"account_id"`
+	DisplayName    string   `yaml:"display_name"`
+	GroupName      string   `yaml:"group_name"`
+	ExtraUserRoles []string `yaml:"extra_user_roles"`
 }
 
 type AWSConfiguration struct {
