@@ -56,7 +56,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration, brokers 
 		}
 	}
 
-	http.HandleFunc("/", server.rootHandler)
+	http.HandleFunc("/", server.dashboardRootHandler)
 	http.HandleFunc("/status", server.statusHandler)
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.consoleAccessHandler)
