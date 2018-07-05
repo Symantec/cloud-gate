@@ -47,7 +47,7 @@ const consoleAccessTemplateText = `
 		</td>
 		<td>
 		{{range $index, $role:= $value.AvailableRoles}}
-		     <button type="submit" name="rolename" value="{{$role}}">{{$role}}</button>
+		     <button type="submit" name="roleName" value="{{$role}}">{{$role}}</button>
 		{{end}}
 		</td>
 		</form>

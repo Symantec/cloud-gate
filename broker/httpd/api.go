@@ -99,6 +99,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	http.HandleFunc("/status", server.statusHandler)
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.consoleAccessHandler)
+	serviceMux.HandleFunc("/getconsole", server.getConsoleUrlHandler)
 	serviceMux.HandleFunc("/static/", staticHandler)
 
 	//setup openidc auth
