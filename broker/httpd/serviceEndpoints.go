@@ -9,7 +9,6 @@ func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-
 	displayData := consolePageTemplateData{
 		Title:        "Cloud-Gate console access",
 		AuthUsername: authUser,
