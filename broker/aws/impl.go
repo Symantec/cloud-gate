@@ -286,7 +286,6 @@ type SessionTokenResponseJSON struct {
 }
 
 func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string, userName string) (string, error) {
-
 	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
 	if err != nil {
 		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
@@ -344,7 +343,8 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 	if err != nil {
 		return "", err
 	}
-	targetUrl := fmt.Sprintf("https://signin.aws.amazon.com/federation?Action=login&Issuer=https://example.com&Destination=https://console.aws.amazon.com/&SigninToken=%s", tokenOutput.SigninToken)
+	awsDestinationURL := "https://console.aws.amazon.com/"
+	targetUrl := fmt.Sprintf("https://signin.aws.amazon.com/federation?Action=login&Issuer=https://example.com&Destination=%s&SigninToken=%s", awsDestinationURL, tokenOutput.SigninToken)
 
 	b.logger.Debugf(1, "targetURL=%s", targetUrl)
 	//TODO check region from account config
