@@ -289,8 +289,13 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 
 	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
 	if err != nil {
-		b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
-		return "", err
+		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
+		// try using a direct role if possible then
+		assumeRoleOutput, err = b.withProfileAssumeRole(accountName, accountName, roleName, userName)
+		if err != nil {
+			b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
+			return "", err
+		}
 	}
 	b.logger.Printf("assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
 
