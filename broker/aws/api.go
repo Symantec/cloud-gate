@@ -45,3 +45,7 @@ func (b *Broker) UserAllowedToAssumeRole(username string, accountName string, ro
 func (b *Broker) GetConsoleURLForAccountRole(accountName string, roleName string, userName string) (string, error) {
 	return b.getConsoleURLForAccountRole(accountName, roleName, userName)
 }
+
+func (b *Broker) GenerateTokenCredentials(accountName string, roleName string, userName string) (*broker.AWSCredentialsJSON, error) {
+	return b.generateTokenCredentials(accountName, roleName, userName)
+}
