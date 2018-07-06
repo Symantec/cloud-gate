@@ -5,7 +5,22 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"strings"
 )
+
+func (s *Server) getPreferredAcceptType(r *http.Request) string {
+	preferredAcceptType := "application/json"
+	acceptHeader, ok := r.Header["Accept"]
+	if ok {
+		for _, acceptValue := range acceptHeader {
+			if strings.Contains(acceptValue, "text/html") {
+				s.logger.Debugf(2, "Got it  %+v", acceptValue)
+				preferredAcceptType = "text/html"
+			}
+		}
+	}
+	return preferredAcceptType
+}
 
 func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
 	authUser, err := s.GetRemoteUserName(w, r)
@@ -30,11 +45,29 @@ func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
 		AuthUsername:  authUser,
 		CloudAccounts: cloudAccounts,
 	}
-	err = s.htmlTemplate.ExecuteTemplate(w, "consoleAccessPage", displayData)
-	if err != nil {
-		s.logger.Printf("Failed to execute %v", err)
-		http.Error(w, "error", http.StatusInternalServerError)
-		return
+	returnAcceptType := s.getPreferredAcceptType(r)
+	switch returnAcceptType {
+	case "text/html":
+
+		err = s.htmlTemplate.ExecuteTemplate(w, "consoleAccessPage", displayData)
+		if err != nil {
+			s.logger.Printf("Failed to execute %v", err)
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+		}
+	default:
+		displayData.Title = ""
+		b, err := json.MarshalIndent(displayData, "", "  ")
+		if err != nil {
+			s.logger.Printf("Failed marshal %v", err)
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+
+		}
+		_, err = w.Write(b)
+		if err != nil {
+			s.logger.Printf("Incomplete write? %v", err)
+		}
 	}
 	return
 }

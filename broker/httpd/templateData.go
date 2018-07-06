@@ -6,10 +6,10 @@ type cloudAccountInfo struct {
 }
 
 type consolePageTemplateData struct {
-	Title         string
+	Title         string `json:",omitempty"`
 	AuthUsername  string
-	JSSources     []string
-	ErrorMessage  string
+	JSSources     []string `json:",omitempty"`
+	ErrorMessage  string   `json:",omitempty"`
 	CloudAccounts map[string]cloudAccountInfo
 }
 
