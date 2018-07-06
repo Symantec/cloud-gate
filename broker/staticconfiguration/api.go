@@ -12,6 +12,7 @@ type BaseConfig struct {
 	AWSCredentialsFilename            string        `yaml:"aws_credentials_filename"`
 	AccountConfigurationUrl           string        `yaml:"account_configuration_url"`
 	AccountConfigurationCheckInterval time.Duration `yaml:"account_configuration_check_interval"`
+	ClientCAFilename                  string        `yaml:"client_ca_filename"`
 }
 
 type OpenIDConfig struct {

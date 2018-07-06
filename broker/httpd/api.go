@@ -2,9 +2,11 @@ package httpd
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"sync"
@@ -121,6 +123,17 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 			logger.Fatalf("Failed to start status server, err=%s", err)
 		}
 	}()
+
+	var clientCACertPool *x509.CertPool
+	if len(staticConfig.Base.ClientCAFilename) > 0 {
+		clientCACertPool = x509.NewCertPool()
+		caCert, err := ioutil.ReadFile(staticConfig.Base.ClientCAFilename)
+		if err != nil {
+			logger.Fatalf("cannot read clientCA file err=%s", err)
+		}
+		clientCACertPool.AppendCertsFromPEM(caCert)
+	}
+
 	tlsConfig := &tls.Config{
 		MinVersion:               tls.VersionTLS12,
 		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
@@ -129,6 +142,8 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 		},
+		ClientAuth: tls.VerifyClientCertIfGiven,
+		ClientCAs:  clientCACertPool,
 	}
 	serviceServer := &http.Server{
 		Handler:      serviceMux,
