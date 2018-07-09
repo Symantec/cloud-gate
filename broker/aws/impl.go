@@ -86,7 +86,7 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 	//roleName := "CPEBrokerRole"
 	//roleSessionName := "brokermaster"
 	var durationSeconds int64
-	durationSeconds = 1800
+	durationSeconds = 3600
 	accountID, err := b.accountIDFromName(accountName)
 	if err != nil {
 		return nil, err
