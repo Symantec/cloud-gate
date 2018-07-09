@@ -2,7 +2,9 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"flag"
 	"io/ioutil"
 	//"fmt"
@@ -12,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 
 	"gopkg.in/ini.v1"
 )
@@ -33,7 +36,14 @@ type getAccountInfo struct {
 	CloudAccounts map[string]cloudAccountInfo
 }
 
-func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName string, credFile *ini.File) error {
+type AWSCredentialsJSON struct {
+	SessionId    string `json:"sessionId"`
+	SessionKey   string `json:"sessionKey"`
+	SessionToken string `json:"sessionToken"`
+	Region       string `json:"region,omitempty"`
+}
+
+func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName string, cfg *ini.File) error {
 	log.Printf("account=%s, role=%s", accountName, roleName)
 
 	resp, err := client.PostForm(baseUrl+"/generatetoken",
@@ -48,7 +58,18 @@ func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName strin
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(string(data))
+	//log.Println(string(data))
+
+	var awsCreds AWSCredentialsJSON
+	err = json.Unmarshal(data, &awsCreds)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//log.Printf("%+v", awsCreds)
+	fileProfile := accountName + "-" + roleName
+	cfg.Section(fileProfile).Key("aws_access_key_id").SetValue(awsCreds.SessionId)
+	cfg.Section(fileProfile).Key("aws_secret_access_key").SetValue(awsCreds.SessionKey)
+	cfg.Section(fileProfile).Key("aws_session_token").SetValue(awsCreds.SessionToken)
 
 	return nil
 }
@@ -102,20 +123,55 @@ func getCerts(cert tls.Certificate, baseUrl string, credentialFilename string) e
 			}
 		}
 	}
+	err = credFile.SaveTo(credentialFilename)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return nil
+}
+
+//Assumes cert is pem ecoded
+func getCertExpirationTime(certFilename string) (time.Time, error) {
+	dat, err := ioutil.ReadFile(certFilename)
+	if err != nil {
+		return time.Now(), err
+	}
+	block, _ := pem.Decode(dat)
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return time.Now(), err
+	}
+	return cert.NotAfter, nil
 }
 
 func main() {
 	flag.Parse()
 
-	cert, err := tls.LoadX509KeyPair(*certFilename, *keyFilename)
+	certNotAfter, err := getCertExpirationTime(*certFilename)
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = getCerts(cert, *baseURL, *crededentialFilename)
-	if err != nil {
-		log.Fatal(err)
+
+	for certNotAfter.After(time.Now()) {
+		sleepDuration := 1200 * time.Second
+		cert, err := tls.LoadX509KeyPair(*certFilename, *keyFilename)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = getCerts(cert, *baseURL, *crededentialFilename)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Credentials Successfully generated sleeping for (%s)", sleepDuration)
+
+		time.Sleep(sleepDuration)
+		certNotAfter, err = getCertExpirationTime(*certFilename)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 	}
 
 	log.Printf("done")
