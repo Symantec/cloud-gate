@@ -14,6 +14,7 @@ type AWSCredentialsJSON struct {
 	SessionId    string `json:"sessionId"`
 	SessionKey   string `json:"sessionKey"`
 	SessionToken string `json:"sessionToken"`
+	Region       string `json:"region,omitempty"`
 }
 
 type Broker interface {
