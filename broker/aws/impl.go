@@ -128,7 +128,7 @@ func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, erro
 		b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
 		return nil, err
 	}
-	b.logger.Printf("assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
+	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
 
 	//TODO check region from account config
 	region := "us-east-1"
@@ -328,7 +328,7 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 			return "", err
 		}
 	}
-	b.logger.Printf("assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
+	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
 
 	sessionCredentials := ExchangeCredentialsJSON{
 		SessionId:    *assumeRoleOutput.Credentials.AccessKeyId,
@@ -397,7 +397,7 @@ func (b *Broker) generateTokenCredentials(accountName string, roleName string, u
 			return nil, err
 		}
 	}
-	b.logger.Printf("assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
+	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
 	outVal := broker.AWSCredentialsJSON{
 		SessionId:    *assumeRoleOutput.Credentials.AccessKeyId,
 		SessionKey:   *assumeRoleOutput.Credentials.SecretAccessKey,
