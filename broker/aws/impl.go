@@ -139,7 +139,7 @@ func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, erro
 	return b.withSessionGetAWSRoleList(assumedSession)
 }
 
-func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
+func (b *Broker) getAWSRolesForAccountNonCached(accountName string) ([]string, error) {
 	b.logger.Debugf(1, "top of getAWSRolesForAccount for account =%s", accountName)
 	accountRoles, err := b.masterGetAWSRolesForAccount(accountName)
 	if err == nil {
@@ -160,6 +160,44 @@ func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
 	// This is strange, no error calling?
 	accountSession := session.Must(session.NewSession(aws.NewConfig().WithCredentials(sessionCredentials).WithRegion(region)))
 	return b.withSessionGetAWSRoleList(accountSession)
+}
+
+const roleCacheDuration = time.Second * 1800
+
+func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
+	b.accountRoleMutex.Lock()
+	cachedEntry, ok := b.accountRoleCache[accountName]
+	b.accountRoleMutex.Unlock()
+	if ok {
+
+		if cachedEntry.Expiration.After(time.Now()) {
+			b.logger.Debugf(1, "GOT rolesfrom cache")
+			return cachedEntry.Roles, nil
+		}
+
+		// entry is expired
+		value, err := b.getAWSRolesForAccountNonCached(accountName)
+		if err != nil {
+			b.logger.Printf("Failure gettting non-cached roles, using expired cache")
+			return cachedEntry.Roles, nil
+		}
+		cachedEntry.Roles = value
+		cachedEntry.Expiration = time.Now().Add(roleCacheDuration)
+		b.accountRoleMutex.Lock()
+		b.accountRoleCache[accountName] = cachedEntry
+		b.accountRoleMutex.Unlock()
+		return value, nil
+	}
+	value, err := b.getAWSRolesForAccountNonCached(accountName)
+	if err != nil {
+		return value, err
+	}
+	cachedEntry.Roles = value
+	cachedEntry.Expiration = time.Now().Add(roleCacheDuration)
+	b.accountRoleMutex.Lock()
+	b.accountRoleCache[accountName] = cachedEntry
+	b.accountRoleMutex.Unlock()
+	return value, nil
 }
 
 func stringIntersectionNoDups(set1, set2 []string) (intersection []string) {
@@ -260,8 +298,9 @@ func (b *Broker) getUserAllowedAccountsNonCached(username string) ([]broker.Perm
 const cacheDuration = time.Second * 300
 
 func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAccount, error) {
-	//TODO MUTEX!
+	b.userAllowedCredentialsMutex.Lock()
 	cachedEntry, ok := b.userAllowedCredentialsCache[username]
+	b.userAllowedCredentialsMutex.Unlock()
 	if ok {
 		if cachedEntry.Expiration.After(time.Now()) {
 			b.logger.Debugf(1, "GOT authz from cache")
@@ -275,7 +314,9 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 		}
 		cachedEntry.PermittedAccounts = value
 		cachedEntry.Expiration = time.Now().Add(cacheDuration)
+		b.userAllowedCredentialsMutex.Lock()
 		b.userAllowedCredentialsCache[username] = cachedEntry
+		b.userAllowedCredentialsMutex.Unlock()
 		return value, nil
 	}
 	value, err := b.getUserAllowedAccountsNonCached(username)
@@ -284,7 +325,9 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	}
 	cachedEntry.PermittedAccounts = value
 	cachedEntry.Expiration = time.Now().Add(cacheDuration)
+	b.userAllowedCredentialsMutex.Lock()
 	b.userAllowedCredentialsCache[username] = cachedEntry
+	b.userAllowedCredentialsMutex.Unlock()
 	return value, nil
 }
 
