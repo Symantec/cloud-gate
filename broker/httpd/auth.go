@@ -54,6 +54,17 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
+func setupSecurityHeaders(w http.ResponseWriter) error {
+	//all common security headers go here
+	w.Header().Set("Strict-Transport-Security", "max-age=31536")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("X-XSS-Protection", "1")
+	//w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self' code.jquery.com; connect-src 'self'; img-src 'self'; style-src 'self';")
+	w.Header().Set("Content-Security-Policy", "default-src 'self' ;style-src 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com fonts.googleapis.com")
+
+	return nil
+}
+
 func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
 	// If you have a verified cert, no need for cookies
 	if r.TLS != nil {
@@ -62,6 +73,8 @@ func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 			return clientName, nil
 		}
 	}
+
+	_ = setupSecurityHeaders(w)
 
 	remoteCookie, err := r.Cookie(authCookieName)
 	if err != nil {
