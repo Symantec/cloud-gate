@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"gopkg.in/ini.v1"
@@ -26,6 +27,8 @@ var (
 	baseURL              = flag.String("baseURL", "https://cloud-gate-dev.symcpe.net", "location of the cloud-broker")
 	crededentialFilename = flag.String("credentialFile", filepath.Join(os.Getenv("HOME"), ".aws", "credentials"), "An Ini file with credentials")
 	askAdminRoles        = flag.Bool("askAdminRoles", false, "ask also for admin roles")
+	outputProfilePrefix  = flag.String("outputProfilePrefix", "saml-", "prefix to put to profile names $PREFIX$accountName-$roleName")
+	lowerCaseProfileName = flag.Bool("lowerCaseProfileName", true, "ask also for admin roles")
 )
 
 type cloudAccountInfo struct {
@@ -46,9 +49,11 @@ type AWSCredentialsJSON struct {
 }
 
 const badReturnErrText = "bad return code"
-const sleepDuration = 1200 * time.Second
+const sleepDuration = 1800 * time.Second
 
-func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName string, cfg *ini.File) error {
+func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName string,
+	cfg *ini.File, outputProfilePrefix string,
+	lowerCaseProfileName bool) error {
 	log.Printf("account=%s, role=%s", accountName, roleName)
 
 	resp, err := client.PostForm(baseUrl+"/generatetoken",
@@ -74,7 +79,10 @@ func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName strin
 		log.Fatal(err)
 	}
 	//log.Printf("%+v", awsCreds)
-	fileProfile := accountName + "-" + roleName
+	fileProfile := outputProfilePrefix + accountName + "-" + roleName
+	if lowerCaseProfileName {
+		fileProfile = strings.ToLower(fileProfile)
+	}
 	cfg.Section(fileProfile).Key("aws_access_key_id").SetValue(awsCreds.SessionId)
 	cfg.Section(fileProfile).Key("aws_secret_access_key").SetValue(awsCreds.SessionKey)
 	cfg.Section(fileProfile).Key("aws_session_token").SetValue(awsCreds.SessionToken)
@@ -82,9 +90,19 @@ func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName strin
 	return nil
 }
 
-func getCerts(cert tls.Certificate, baseUrl string, credentialFilename string, askAdminRoles bool) error {
+func getCerts(cert tls.Certificate, baseUrl string,
+	credentialFilename string, askAdminRoles bool,
+	outputProfilePrefix string, lowerCaseProfileName bool) error {
 
-	//get credfile, TODO: make if ones does not exist
+	// Create file if it does not exist
+	if _, err := os.Stat(credentialFilename); os.IsNotExist(err) {
+		file, err := os.OpenFile(credentialFilename, os.O_RDONLY|os.O_CREATE, 0660)
+		if err != nil {
+			return err
+		}
+		file.Close()
+	}
+
 	credFile, err := ini.Load(credentialFilename)
 	if err != nil {
 		return err
@@ -128,7 +146,9 @@ func getCerts(cert tls.Certificate, baseUrl string, credentialFilename string, a
 			if err != nil {
 				log.Fatalf("error on regexp=%s", err)
 			}
-			err = getAndUptateCreds(client, baseUrl, account.Name, roleName, credFile)
+			err = getAndUptateCreds(client, baseUrl,
+				account.Name, roleName, credFile,
+				outputProfilePrefix, lowerCaseProfileName)
 			if err != nil {
 				if err.Error() == badReturnErrText {
 					log.Printf("skipping role")
@@ -174,7 +194,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = getCerts(cert, *baseURL, *crededentialFilename, *askAdminRoles)
+		err = getCerts(cert, *baseURL, *crededentialFilename,
+			*askAdminRoles, *outputProfilePrefix, *lowerCaseProfileName)
 		if err != nil {
 			log.Fatal(err)
 		}
