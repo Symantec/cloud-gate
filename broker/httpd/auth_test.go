@@ -2,6 +2,7 @@ package httpd
 
 import (
 	"github.com/Symantec/Dominator/lib/log/debuglogger"
+	"github.com/Symantec/cloud-gate/lib/constants"
 	stdlog "log"
 	"net/http"
 	"os"
@@ -47,7 +48,7 @@ func TestGetRemoteUserNameHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authCookie := http.Cookie{Name: authCookieName, Value: cookieVal}
+	authCookie := http.Cookie{Name: constants.AuthCookieName, Value: cookieVal}
 	uknownCookieReq.AddCookie(&authCookie)
 	_, err = checkRequestHandlerCode(uknownCookieReq, func(w http.ResponseWriter, r *http.Request) {
 		_, err := server.GetRemoteUserName(w, r)
