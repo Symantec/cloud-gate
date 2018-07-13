@@ -3,6 +3,7 @@ package httpd
 import (
 	"crypto/tls"
 	"fmt"
+	"html/template"
 	"io"
 	"net"
 	"net/http"
@@ -22,6 +23,7 @@ type Server struct {
 	brokers      map[string]broker.Broker
 	config       *configuration.Configuration
 	htmlWriters  []HtmlWriter
+	htmlTemplate *template.Template
 	staticConfig *staticconfiguration.StaticConfiguration
 
 	logger log.DebugLogger
@@ -29,6 +31,7 @@ type Server struct {
 
 func StartServer(staticConfig *staticconfiguration.StaticConfiguration, brokers map[string]broker.Broker,
 	logger log.DebugLogger) (*Server, error) {
+
 	statusListener, err := net.Listen("tcp", fmt.Sprintf(":%d", staticConfig.Base.StatusPort))
 	if err != nil {
 		return nil, err
@@ -42,10 +45,23 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration, brokers 
 		logger:       logger,
 		staticConfig: staticConfig,
 	}
-	http.HandleFunc("/", server.rootHandler)
+	// load templates
+	server.htmlTemplate = template.New("main")
+	// Load the other built in templates
+	extraTemplates := []string{footerTemplateText, consoleAccessTemplateText, headerTemplateText}
+	for _, templateString := range extraTemplates {
+		_, err = server.htmlTemplate.Parse(templateString)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	http.HandleFunc("/", server.dashboardRootHandler)
 	http.HandleFunc("/status", server.statusHandler)
 	serviceMux := http.NewServeMux()
-	serviceMux.HandleFunc("/", server.rootHandler)
+	serviceMux.HandleFunc("/", server.consoleAccessHandler)
+	serviceMux.HandleFunc("/static/", staticHandler)
+
 	statusServer := &http.Server{
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
