@@ -22,6 +22,7 @@ const consoleAccessTemplateText = `
     <head>
         <meta charset="UTF-8">
         <title>{{.Title}}</title>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
         <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Droid+Sans" />
         <link rel="stylesheet" type="text/css" href="/static/customization.css">
         <link rel="stylesheet" type="text/css" href="/static/common.css">
@@ -35,19 +36,19 @@ const consoleAccessTemplateText = `
         <p style="color:red;">{{.ErrorMessage}} </p>
         {{end}}
         <p>
-	Go to:  {{if .TokenConsole}} <a href="/">Web Console</a> {{else}} <a href="/?mode=genToken">Token Console <a> {{end}} 
+	Go to:  {{if .TokenConsole}} <a href="/">Web Console</a> {{else}} <a href="/?mode=genToken">Token Console </a> {{end}} 
 	</p>
 
         {{with $top := . }}
 	<div id="accounts">
-          <table>
+          <table class="table table-striped">
 	     <tr>
-	       <th>Environment</th>
+	       <th>Account</th>
 	       <th>Roles</th>
 	     </tr>
 	   {{range $key, $value := .CloudAccounts}}
 	     <tr>
-	     <form action={{if $top.TokenConsole}}"/generatetoken"{{else}}"/getconsole"{{end}}>
+	     <form action={{if $top.TokenConsole}}"/generatetoken"{{else}}"/getconsole" target="_blank"{{end}}>
 		<input type="hidden" name="accountName" value="{{$value.Name}}">
 	        <td>{{$key}}
 		</td>
@@ -167,6 +168,7 @@ body{
 h1,h2,h3{
     line-height:1.2;
 }
+
 
 .bodyContainer {
 }
