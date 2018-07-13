@@ -81,7 +81,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration, brokers 
 
 	// load templates
 	server.htmlTemplate = template.New("main")
-	/// Load the other built in templates
+	// Load the other built in templates
 	extraTemplates := []string{footerTemplateText, consoleAccessTemplateText, headerTemplateText}
 	for _, templateString := range extraTemplates {
 		_, err = server.htmlTemplate.Parse(templateString)
