@@ -1,18 +1,11 @@
 package httpd
 
 import (
-	//"encoding/json"
-	//"errors"
-	//"fmt"
+	"github.com/Symantec/Dominator/lib/log/debuglogger"
 	stdlog "log"
 	"net/http"
-	//"net/http/httptest"
 	"os"
 	"testing"
-	//"time"
-	"github.com/Symantec/Dominator/lib/log/debuglogger"
-	//"golang.org/x/net/context"
-	//"golang.org/x/oauth2"
 )
 
 func testgetRemoteUserNameWrapper(w http.ResponseWriter, r *http.Request) {

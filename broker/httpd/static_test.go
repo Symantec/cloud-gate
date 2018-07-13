@@ -1,18 +1,11 @@
 package httpd
 
 import (
-	//"encoding/json"
 	"errors"
 	"fmt"
-	//stdlog "log"
 	"net/http"
 	"net/http/httptest"
-	//"os"
 	"testing"
-	//"time"
-	//"github.com/Symantec/Dominator/lib/log/debuglogger"
-	//"golang.org/x/net/context"
-	//"golang.org/x/oauth2"
 )
 
 func checkRequestHandlerCode(req *http.Request, handlerFunc http.HandlerFunc, expectedStatus int) (*httptest.ResponseRecorder, error) {
