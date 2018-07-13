@@ -68,13 +68,13 @@ func (b *Broker) getCredentialsFromProfile(profileName string) (*credentials.Cre
 	return sessionCredentials, region, nil
 }
 
-func (b *Broker) withProfileAssumeRole(accountName string, profileName string, roleName string, roleSessionName string) (*sts.AssumeRoleOutput, error) {
+func (b *Broker) withProfileAssumeRole(accountName string, profileName string, roleName string, roleSessionName string) (*sts.AssumeRoleOutput, string, error) {
 	sessionCredentials, region, err := b.getCredentialsFromProfile(profileName)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if sessionCredentials == nil {
-		return nil, errors.New(fmt.Sprintf("No valid profile=%s", profileName))
+		return nil, "", errors.New(fmt.Sprintf("No valid profile=%s", profileName))
 	}
 
 	// This is strange, no error calling?
@@ -89,15 +89,22 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 	durationSeconds = 3600
 	accountID, err := b.accountIDFromName(accountName)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", accountID, roleName)
+
+	arnRolePrefix := "arn:aws:iam"
+	if region == "us-gov-west-1" {
+		arnRolePrefix = "arn:aws-us-gov:iam"
+	}
+	roleArn := fmt.Sprintf("%s::%s:role/%s", arnRolePrefix, accountID, roleName)
+
 	assumeRoleInput := sts.AssumeRoleInput{
 		DurationSeconds: &durationSeconds,
 		RoleArn:         &roleArn,
 		RoleSessionName: &roleSessionName,
 	}
-	return stsClient.AssumeRole(&assumeRoleInput)
+	assumeRoleOutput, err := stsClient.AssumeRole(&assumeRoleInput)
+	return assumeRoleOutput, region, err
 }
 
 func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]string, error) {
@@ -123,15 +130,13 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 }
 
 func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, error) {
-	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, masterRoleName, "brokermaster")
+	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, masterRoleName, "brokermaster")
 	if err != nil {
 		b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
 		return nil, err
 	}
 	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
 
-	//TODO check region from account config
-	region := "us-east-1"
 	sessionCredentials := credentials.NewStaticCredentials(*assumeRoleOutput.Credentials.AccessKeyId,
 		*assumeRoleOutput.Credentials.SecretAccessKey, *assumeRoleOutput.Credentials.SessionToken)
 	assumedSession := session.Must(session.NewSession(aws.NewConfig().WithCredentials(sessionCredentials).WithRegion(region)))
@@ -361,11 +366,11 @@ type SessionTokenResponseJSON struct {
 }
 
 func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string, userName string) (string, error) {
-	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
+	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
 	if err != nil {
 		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
 		// try using a direct role if possible then
-		assumeRoleOutput, err = b.withProfileAssumeRole(accountName, accountName, roleName, userName)
+		assumeRoleOutput, region, err = b.withProfileAssumeRole(accountName, accountName, roleName, userName)
 		if err != nil {
 			b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
 			return "", err
@@ -387,7 +392,14 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 	creds := url.QueryEscape(string(bcreds[:]))
 	b.logger.Debugf(1, "sessionCredentials-escaped=%v", creds)
 
-	req, err := http.NewRequest("GET", "https://signin.aws.amazon.com/federation", nil)
+	federationUrl := "https://signin.aws.amazon.com/federation"
+	awsDestinationURL := "https://console.aws.amazon.com/"
+	if region == "us-gov-west-1" {
+		federationUrl = "https://signin.amazonaws-us-gov.com/federation"
+		awsDestinationURL = "https://console.amazonaws-us-gov.com/"
+	}
+
+	req, err := http.NewRequest("GET", federationUrl, nil)
 	if err != nil {
 		return "", err
 	}
@@ -418,33 +430,33 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 	if err != nil {
 		return "", err
 	}
-	awsDestinationURL := "https://console.aws.amazon.com/"
-	targetUrl := fmt.Sprintf("https://signin.aws.amazon.com/federation?Action=login&Issuer=https://example.com&Destination=%s&SigninToken=%s", awsDestinationURL, tokenOutput.SigninToken)
+	targetUrl := fmt.Sprintf("%s?Action=login&Issuer=https://example.com&Destination=%s&SigninToken=%s", federationUrl, awsDestinationURL, tokenOutput.SigninToken)
 
 	b.logger.Debugf(1, "targetURL=%s", targetUrl)
-	//TODO check region from account config
-	//region := "us-east-1"
 
-	//return "", errors.New("Not implemented")
 	return targetUrl, nil
 }
 
 func (b *Broker) generateTokenCredentials(accountName string, roleName string, userName string) (*broker.AWSCredentialsJSON, error) {
-	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
+	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
 	if err != nil {
 		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
 		// try using a direct role if possible then
-		assumeRoleOutput, err = b.withProfileAssumeRole(accountName, accountName, roleName, userName)
+		assumeRoleOutput, region, err = b.withProfileAssumeRole(accountName, accountName, roleName, userName)
 		if err != nil {
 			b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
 			return nil, err
 		}
 	}
 	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
+	if region != "us-gov-west-1" {
+		region = ""
+	}
 	outVal := broker.AWSCredentialsJSON{
 		SessionId:    *assumeRoleOutput.Credentials.AccessKeyId,
 		SessionKey:   *assumeRoleOutput.Credentials.SecretAccessKey,
 		SessionToken: *assumeRoleOutput.Credentials.SessionToken,
+		Region:       region,
 	}
 
 	return &outVal, nil
