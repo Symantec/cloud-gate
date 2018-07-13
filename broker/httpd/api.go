@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -87,7 +89,21 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	go server.performStateCleanup(secondsBetweenCleanup)
 
 	// load templates
+	templatesPath := filepath.Join(staticConfig.Base.SharedDataDirectory, "customization_data", "templates")
+	if _, err = os.Stat(templatesPath); err != nil {
+		return nil, err
+	}
 	server.htmlTemplate = template.New("main")
+
+	templateFiles := []string{"footer_extra.tmpl", "header_extra.tmpl"}
+	for _, templateFilename := range templateFiles {
+		templatePath := filepath.Join(templatesPath, templateFilename)
+		_, err = server.htmlTemplate.ParseFiles(templatePath)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	/// Load the oter built in templates
 	extraTemplates := []string{footerTemplateText, consoleAccessTemplateText, generateTokaneTemplateText, headerTemplateText}
 	for _, templateString := range extraTemplates {

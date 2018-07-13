@@ -181,7 +181,7 @@ const headerTemplateText = `
 <div class="header">
 <table style="width:100%;border-collapse: separate;border-spacing: 0;">
 <tr>
-<th style="text-align:left;"> <div class="header_extra">CPE Cloud-Gate</div></th>
+<th style="text-align:left;"> <div class="header_extra">{{template "header_extra"}}</div></th>
 <th style="text-align:right;padding-right: .5em;">  {{if .AuthUsername}} <b> {{.AuthUsername}}  {{end}}</th>
 </tr>
 </table>
@@ -196,7 +196,7 @@ const footerTemplateText = `
 <div class="footer">
 <hr>
 <center>
-Copright 2018 Symantec Corporation. 
+Copyright 2018 Symantec Corporation. {{template "footer_extra"}}
 </center>
 </div>
 {{end}}
