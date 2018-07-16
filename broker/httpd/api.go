@@ -120,6 +120,10 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	serviceMux.HandleFunc("/getconsole", server.getConsoleUrlHandler)
 	serviceMux.HandleFunc("/generatetoken", server.generateTokenHandler)
 	serviceMux.HandleFunc("/static/", staticHandler)
+	customWebResourcesPath := filepath.Join(staticConfig.Base.SharedDataDirectory, "customization_data", "web_resources")
+	if _, err = os.Stat(customWebResourcesPath); err == nil {
+		serviceMux.Handle("/custom_static/", http.StripPrefix("/custom_static/", http.FileServer(http.Dir(customWebResourcesPath))))
+	}
 
 	//setup openidc auth
 	ctx := context.Background()
