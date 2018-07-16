@@ -132,7 +132,7 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, error) {
 	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, masterRoleName, "brokermaster")
 	if err != nil {
-		b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
+		b.logger.Debugf(0, "cannot assume master role for account %s, err=%s", accountName, err)
 		return nil, err
 	}
 	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
@@ -431,9 +431,9 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 		return "", err
 	}
 	targetUrl := fmt.Sprintf("%s?Action=login&Issuer=https://example.com&Destination=%s&SigninToken=%s", federationUrl, awsDestinationURL, tokenOutput.SigninToken)
-
 	b.logger.Debugf(1, "targetURL=%s", targetUrl)
 
+	b.logger.Printf("Cosole url generated for: %s on account %s role %s", userName, accountName, roleName)
 	return targetUrl, nil
 }
 
@@ -458,6 +458,7 @@ func (b *Broker) generateTokenCredentials(accountName string, roleName string, u
 		SessionToken: *assumeRoleOutput.Credentials.SessionToken,
 		Region:       region,
 	}
+	b.logger.Printf("Token credentials generated for: %s on account %s role %s", userName, accountName, roleName)
 
 	return &outVal, nil
 }
