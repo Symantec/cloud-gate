@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Cannot load Configuration: %s\n", err)
 	}
-	logger.Debugf(1, "staticconfig=+%v", staticConfig)
+	logger.Debugf(1, "staticconfig=%+v", staticConfig)
 
 	timeoutSecs := 15
 	userInfo, err := ldap.New(strings.Split(staticConfig.Ldap.LDAPTargetURLs, ","),
