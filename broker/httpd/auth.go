@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -51,7 +52,17 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	s.authCookie[userCookie.Value] = Cookieinfo
 	s.cookieMutex.Unlock()
 
-	http.Redirect(w, r, "/", http.StatusFound)
+	destinationPath := "/"
+	err = r.ParseForm()
+	// WARN reverse logic!
+	if err == nil {
+		valueArr, ok := r.Form["returnURL"]
+		if ok {
+			destinationPath = valueArr[0]
+		}
+	}
+
+	http.Redirect(w, r, destinationPath, http.StatusFound)
 }
 
 func setupSecurityHeaders(w http.ResponseWriter) error {
@@ -76,10 +87,14 @@ func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 
 	_ = setupSecurityHeaders(w)
 
+	v := url.Values{}
+	v.Set("returnURL", r.URL.String())
+	redirURL := loginPath + "?" + v.Encode()
+
 	remoteCookie, err := r.Cookie(authCookieName)
 	if err != nil {
 		s.logger.Println(err)
-		http.Redirect(w, r, loginPath, http.StatusFound)
+		http.Redirect(w, r, redirURL, http.StatusFound)
 		return "", err
 	}
 	s.cookieMutex.Lock()
@@ -87,11 +102,11 @@ func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 	authInfo, ok := s.authCookie[remoteCookie.Value]
 
 	if !ok {
-		http.Redirect(w, r, loginPath, http.StatusFound)
+		http.Redirect(w, r, redirURL, http.StatusFound)
 		return "", errors.New("Cookie not found")
 	}
 	if authInfo.ExpiresAt.Before(time.Now()) {
-		http.Redirect(w, r, loginPath, http.StatusFound)
+		http.Redirect(w, r, redirURL, http.StatusFound)
 		return "", errors.New("Expired Cookie")
 	}
 	return authInfo.Username, nil
