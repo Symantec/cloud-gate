@@ -53,12 +53,14 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	s.cookieMutex.Unlock()
 
 	destinationPath := "/"
-	err = r.ParseForm()
-	// WARN reverse logic!
-	if err == nil {
-		valueArr, ok := r.Form["returnURL"]
-		if ok {
-			destinationPath = valueArr[0]
+	if r.Method == "GET" || r.Method == "POST" {
+		err = r.ParseForm()
+		// WARN reverse logic!
+		if err == nil {
+			valueArr, ok := r.Form["returnURL"]
+			if ok {
+				destinationPath = valueArr[0]
+			}
 		}
 	}
 
