@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,28 @@ func randomStringGeneration() (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(bytes), nil
+}
+
+func getRedirDestination(r *http.Request) string {
+	destinationPath := "/"
+	if !(r.Method == "GET" || r.Method == "POST") {
+		return destinationPath
+	}
+	err := r.ParseForm()
+	if err != nil {
+		return destinationPath
+	}
+	valueArr, ok := r.Form["returnURL"]
+	if !ok {
+		return destinationPath
+	}
+
+	inboundPath := valueArr[0]
+	if strings.HasPrefix(inboundPath, "/") {
+		destinationPath = inboundPath
+	}
+
+	return destinationPath
 }
 
 func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -52,17 +75,7 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	s.authCookie[userCookie.Value] = Cookieinfo
 	s.cookieMutex.Unlock()
 
-	destinationPath := "/"
-	if r.Method == "GET" || r.Method == "POST" {
-		err = r.ParseForm()
-		// WARN reverse logic!
-		if err == nil {
-			valueArr, ok := r.Form["returnURL"]
-			if ok {
-				destinationPath = valueArr[0]
-			}
-		}
-	}
+	destinationPath := getRedirDestination(r)
 
 	http.Redirect(w, r, destinationPath, http.StatusFound)
 }
