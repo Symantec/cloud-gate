@@ -1,6 +1,6 @@
 Name:           cloud-gate
 Version:        0.5.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Access broker for clouds
 
 #Group:
@@ -56,7 +56,7 @@ chown cloud-gate /var/lib/cloud-gate
 systemctl daemon-reload
 
 %postun
-/usr/sbin/userdel keymaster
+/usr/sbin/userdel cloud-gate
 systemctl daemon-reload
 
 %files

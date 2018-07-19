@@ -50,7 +50,8 @@ const secondsBetweenCleanup = 60
 const loginPath = "/login/"
 const oidcCallbackPath = "/auth/oidcsimple/callback"
 const cookieExpirationHours = 3
-const authCookieName = "auth_cookie"
+
+var authCookieName = "auth_cookie"
 
 func (s *Server) performStateCleanup(secsBetweenCleanup int) {
 	for {
@@ -82,6 +83,12 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	userInfo userinfo.UserInfo,
 	brokers map[string]broker.Broker,
 	logger log.DebugLogger) (*Server, error) {
+
+	authCookieSuffix, err := randomStringGeneration()
+	if err != nil {
+		return nil, err
+	}
+	authCookieName = authCookieName + "_" + authCookieSuffix[0:6]
 
 	statusListener, err := net.Listen("tcp", fmt.Sprintf(":%d", staticConfig.Base.StatusPort))
 	if err != nil {
