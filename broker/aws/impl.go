@@ -433,7 +433,11 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 	targetUrl := fmt.Sprintf("%s?Action=login&Issuer=https://example.com&Destination=%s&SigninToken=%s", federationUrl, awsDestinationURL, tokenOutput.SigninToken)
 	b.logger.Debugf(1, "targetURL=%s", targetUrl)
 
-	b.logger.Printf("Cosole url generated for: %s on account %s role %s", userName, accountName, roleName)
+	logString := fmt.Sprintf("Console url generated for: %s on account %s role %s", userName, accountName, roleName)
+	b.logger.Printf("%s", logString)
+	if b.syslog != nil {
+		b.syslog.Notice(logString)
+	}
 	return targetUrl, nil
 }
 
@@ -458,7 +462,11 @@ func (b *Broker) generateTokenCredentials(accountName string, roleName string, u
 		SessionToken: *assumeRoleOutput.Credentials.SessionToken,
 		Region:       region,
 	}
-	b.logger.Printf("Token credentials generated for: %s on account %s role %s", userName, accountName, roleName)
+	logString := fmt.Sprintf("Token credentials generated for: %s on account %s role %s", userName, accountName, roleName)
+	b.logger.Printf("%s", logString)
+	if b.syslog != nil {
+		b.syslog.Notice(logString)
+	}
 
 	return &outVal, nil
 }

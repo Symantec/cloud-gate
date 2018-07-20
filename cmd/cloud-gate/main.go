@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/syslog"
 	"os"
 	"strings"
 
@@ -29,6 +30,12 @@ func main() {
 	}
 	logger := serverlogger.New("")
 
+	syslogWriter, err := syslog.New(syslog.LOG_AUTHPRIV|syslog.LOG_NOTICE, "cloud-gate")
+	if err != nil {
+		logger.Printf("Cound not open connection to local syslog daemon")
+		syslogWriter = nil
+	}
+
 	staticConfig, err := staticconfiguration.LoadVerifyConfigFile(*configFilename)
 	if err != nil {
 		logger.Fatalf("Cannot load Configuration: %s\n", err)
@@ -54,7 +61,8 @@ func main() {
 	}
 
 	brokers := map[string]broker.Broker{
-		"aws": aws.New(userInfo, staticConfig.Base.AWSCredentialsFilename, logger),
+		"aws": aws.New(userInfo, staticConfig.Base.AWSCredentialsFilename,
+			logger, syslogWriter),
 	}
 
 	webServer, err := httpd.StartServer(staticConfig, userInfo, brokers, logger)

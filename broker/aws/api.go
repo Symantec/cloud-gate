@@ -2,6 +2,7 @@ package aws
 
 import (
 	"errors"
+	"log/syslog"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ type Broker struct {
 	userInfo                    userinfo.UserInfo
 	credentialsFilename         string
 	logger                      log.DebugLogger
+	syslog                      *syslog.Writer
 	userAllowedCredentialsCache map[string]userAllowedCredentialsCacheEntry
 	userAllowedCredentialsMutex sync.Mutex
 	accountRoleCache            map[string]accountRoleCacheEntry
@@ -34,10 +36,11 @@ type Broker struct {
 
 func New(userInfo userinfo.UserInfo,
 	credentialsFilename string,
-	logger log.DebugLogger) *Broker {
+	logger log.DebugLogger, syslog *syslog.Writer) *Broker {
 	return &Broker{userInfo: userInfo,
 		credentialsFilename: credentialsFilename,
 		logger:              logger,
+		syslog:              syslog,
 		userAllowedCredentialsCache: make(map[string]userAllowedCredentialsCacheEntry),
 		accountRoleCache:            make(map[string]accountRoleCacheEntry),
 	}
