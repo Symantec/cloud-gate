@@ -22,9 +22,9 @@ const consoleAccessTemplateText = `
     <head>
         <meta charset="UTF-8">
         <title>{{.Title}}</title>
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-        <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Droid+Sans" />
-        <link rel="stylesheet" type="text/css" href="/static/customization.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+	<link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Droid+Sans" />
+        <link rel="stylesheet" type="text/css" href="/custom_static/customization.css">
         <link rel="stylesheet" type="text/css" href="/static/common.css">
     </head>
     <body>
@@ -41,7 +41,7 @@ const consoleAccessTemplateText = `
 
         {{with $top := . }}
 	<div id="accounts">
-          <table class="table table-striped">
+          <table class="table table-striped table-sm">
 	     <tr>
 	       <th>Account</th>
 	       <th>Roles</th>
@@ -54,7 +54,7 @@ const consoleAccessTemplateText = `
 		</td>
 		<td>
 		{{range $index, $role:= $value.AvailableRoles}}
-		     <button type="submit" name="roleName" value="{{$role}}">{{$role}}</button>
+		     <button class="btn btn-info btn-sm" type="submit" name="roleName" value="{{$role}}">{{$role}}</button>
 		{{end}}
 		</td>
 		</form>
@@ -179,9 +179,9 @@ h1,h2,h3{
 const headerTemplateText = `
 {{define "header"}}
 <div class="header">
-<table style="width:100%;border-collapse: separate;border-spacing: 0;">
+<table style="width:100%;border-collapse: separate;border-spacing: 0; vertical-align: middle;">
 <tr>
-<th style="text-align:left;"> <div class="header_extra">{{template "header_extra"}}</div></th>
+<th style="text-align:left;vertical-align: bottom;"> <div class="header_extra">{{template "header_extra"}}</div></th>
 <th style="text-align:right;padding-right: .5em;">  {{if .AuthUsername}} <b> {{.AuthUsername}}  {{end}}</th>
 </tr>
 </table>

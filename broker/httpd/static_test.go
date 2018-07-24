@@ -30,7 +30,7 @@ func checkRequestHandlerCode(req *http.Request, handlerFunc http.HandlerFunc, ex
 }
 
 func TestStaticHandler(t *testing.T) {
-	urlList := []string{"/static/common.css", "/static/customization.css"}
+	urlList := []string{"/static/common.css"}
 	for _, url := range urlList {
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
