@@ -39,4 +39,5 @@ width:100%;
 
 .aws_token_text {
     color: #212424;
+    word-break: break-word;
 }
