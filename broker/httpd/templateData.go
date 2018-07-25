@@ -103,8 +103,10 @@ const generateTokaneTemplateText = `
         <p style="color:red;">{{.ErrorMessage}} </p>
         {{end}}
         <p>
+	Go to:  <a href="/?mode=genToken">Token Console </a>
+	</p>
 	<div>
-	<code style="white-space: nowrap">
+	<code class="aws_token_text">
 	[{{.AccountName}}-{{.RoleName}}] <br>
 	{{if .Region}}<p>region = {{.Region}}<br>{{end}}
 	aws_access_key_id = {{.SessionId}}<br>
