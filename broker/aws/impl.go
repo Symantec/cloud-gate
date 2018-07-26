@@ -230,19 +230,24 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 		groupToAccountName[groupName] = account.Name
 		groupList = append(groupList, groupName)
 	}
-	reString := fmt.Sprintf("(?i)(%s)-(.*)$", strings.Join(groupList, "|"))
-	re, err := regexp.Compile(reString)
-	if err != nil {
-		return nil, err
-	}
 	var allowedRoles map[string][]string
 	allowedRoles = make(map[string][]string)
-	for _, group := range userGroups {
-		matches := re.FindStringSubmatch(group)
-		if len(matches) == 3 {
-			b.logger.Debugf(2, "matches=%v", matches)
-			accountGroupName := strings.ToLower(matches[1])
-			allowedRoles[accountGroupName] = append(allowedRoles[accountGroupName], matches[2])
+
+	for _, accountName := range groupList {
+		reString := fmt.Sprintf("(?i)^%s-(.*)$", accountName)
+		b.logger.Debugf(2, "reString=%v", reString)
+		re, err := regexp.Compile(reString)
+		if err != nil {
+			return nil, err
+		}
+		for _, group := range userGroups {
+			matches := re.FindStringSubmatch(group)
+			b.logger.Debugf(4, "matches-XXX=%v %d", matches, len(matches))
+			if len(matches) == 2 {
+				b.logger.Debugf(2, "matches=%v", matches)
+				accountGroupName := accountName
+				allowedRoles[accountGroupName] = append(allowedRoles[accountGroupName], matches[1])
+			}
 		}
 	}
 	b.logger.Debugf(1, "allowedRoles(pre)=%v", allowedRoles)
@@ -366,6 +371,8 @@ type SessionTokenResponseJSON struct {
 	SigninToken string `json:"SigninToken"`
 }
 
+const consoleSessionDurationSeconds = "43000" //3600 * 12
+
 func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string, userName string) (string, error) {
 	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
 	if err != nil {
@@ -407,7 +414,10 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 	q := req.URL.Query()
 	q.Add("Action", "getSigninToken")
 	q.Add("Session", string(bcreds[:]))
+	q.Add("SessionDuration", consoleSessionDurationSeconds)
 	req.URL.RawQuery = q.Encode()
+	b.logger.Debugf(2, "req=%+v", req)
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
