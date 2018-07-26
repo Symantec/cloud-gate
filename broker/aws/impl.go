@@ -276,6 +276,9 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 			continue
 		}
 		allowedAndAvailable := stringIntersectionNoDups(rolesForAccount, allowedRoles)
+		if len(allowedAndAvailable) < 1 {
+			continue
+		}
 		sort.Strings(allowedAndAvailable)
 
 		displayName, err := b.accountHumanNameFromName(accountName)

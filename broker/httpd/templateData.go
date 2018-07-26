@@ -28,6 +28,7 @@ const consoleAccessTemplateText = `
         <link rel="stylesheet" type="text/css" href="/static/common.css">
     </head>
     <body>
+    <div style="min-height:100%;position:relative;">
     {{template "header" .}}
         <div style="padding-bottom:60px; margin:1em auto; max-width:80em; padding-left:20px ">
         <h2> {{if .TokenConsole}} AWS Token Access {{else}}AWS Console Access {{end}} </h2>
@@ -53,7 +54,11 @@ const consoleAccessTemplateText = `
 		</td>
 		<td>
 		{{range $index, $role:= $value.AvailableRoles}}
-		     <button class="btn btn-info ml-1 mr-1 btn-sm" style="background-color:#00a4b7;" type="submit" name="roleName" value="{{$role}}">{{$role}}</button>
+		    <button class="btn btn-info ml-1 mr-1 btn-sm"
+		            style="background-color:#00a4b7;margin-bottom: .1rem !important;margin-top: .1rem !important;"
+		            type="submit" name="roleName" value="{{$role}}">
+	            {{$role}}
+		    </button>
 		{{end}}
 		</td>
 		</form>
@@ -64,6 +69,7 @@ const consoleAccessTemplateText = `
 	</div>
         </div>
     {{template "footer" . }}
+    </div>
     </body>
 </html>
 {{end}}
