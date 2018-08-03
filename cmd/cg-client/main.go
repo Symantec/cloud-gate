@@ -188,6 +188,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if certNotAfter.Before(time.Now()) {
+		log.Fatalf("keymaster certificate is expired, please run keymaster binary. Certificate expired at %s", certNotAfter)
+	}
 
 	for certNotAfter.After(time.Now()) {
 		cert, err := tls.LoadX509KeyPair(*certFilename, *keyFilename)
