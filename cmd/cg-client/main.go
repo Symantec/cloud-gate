@@ -24,7 +24,7 @@ import (
 var (
 	certFilename         = flag.String("cert", filepath.Join(os.Getenv("HOME"), ".ssl", "keymaster.cert"), "A PEM eoncoded certificate file.")
 	keyFilename          = flag.String("key", filepath.Join(os.Getenv("HOME"), ".ssl", "keymaster.key"), "A PEM encoded private key file.")
-	baseURL              = flag.String("baseURL", "https://cloud-gate-dev.symcpe.net", "location of the cloud-broker")
+	baseURL              = flag.String("baseURL", "https://cloud-gate.symcpe.net", "location of the cloud-broker")
 	crededentialFilename = flag.String("credentialFile", filepath.Join(os.Getenv("HOME"), ".aws", "credentials"), "An Ini file with credentials")
 	askAdminRoles        = flag.Bool("askAdminRoles", false, "ask also for admin roles")
 	outputProfilePrefix  = flag.String("outputProfilePrefix", "saml-", "prefix to put to profile names $PREFIX$accountName-$roleName")
