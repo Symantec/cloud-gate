@@ -13,6 +13,13 @@ type BaseConfig struct {
 	AccountConfigurationCheckInterval time.Duration `yaml:"account_configuration_check_interval"`
 }
 
+type OpenIDConfig struct {
+	ClientID     string `yaml:"client_id"`
+	ClientSecret string `yaml:"client_secret"`
+	ProviderURL  string `yaml:"provider_url"`
+}
+
 type StaticConfiguration struct {
-	Base BaseConfig
+	Base   BaseConfig
+	OpenID OpenIDConfig
 }

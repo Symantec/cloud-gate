@@ -7,16 +7,26 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/Symantec/Dominator/lib/log"
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
+	"github.com/Symantec/cloud-gate/lib/constants"
+	"github.com/cviecco/go-simple-oidc-auth/authhandler"
+
+	"golang.org/x/net/context"
 )
 
 type HtmlWriter interface {
 	WriteHtml(writer io.Writer)
+}
+
+type AuthCookie struct {
+	Username  string
+	ExpiresAt time.Time
 }
 
 type Server struct {
@@ -24,9 +34,11 @@ type Server struct {
 	config       *configuration.Configuration
 	htmlWriters  []HtmlWriter
 	htmlTemplate *template.Template
+	logger       log.DebugLogger
+	cookieMutex  sync.Mutex
+	authCookie   map[string]AuthCookie
+	authSource   *authhandler.SimpleOIDCAuth
 	staticConfig *staticconfiguration.StaticConfiguration
-
-	logger log.DebugLogger
 }
 
 func StartServer(staticConfig *staticconfiguration.StaticConfiguration, brokers map[string]broker.Broker,
@@ -45,6 +57,9 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration, brokers 
 		logger:       logger,
 		staticConfig: staticConfig,
 	}
+	server.authCookie = make(map[string]AuthCookie)
+	go server.performStateCleanup(constants.SecondsBetweenCleanup)
+
 	// load templates
 	server.htmlTemplate = template.New("main")
 	// Load the other built in templates
@@ -61,6 +76,13 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration, brokers 
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.consoleAccessHandler)
 	serviceMux.HandleFunc("/static/", staticHandler)
+
+	//setup openidc auth
+	ctx := context.Background()
+	simpleOidcAuth := authhandler.NewSimpleOIDCAuth(&ctx, staticConfig.OpenID.ClientID, staticConfig.OpenID.ClientSecret, staticConfig.OpenID.ProviderURL)
+	server.authSource = simpleOidcAuth
+	serviceMux.Handle(constants.OidcCallbackPath, simpleOidcAuth.Handler(http.HandlerFunc(server.consoleAccessHandler)))
+	serviceMux.Handle(constants.LoginPath, simpleOidcAuth.Handler(http.HandlerFunc(server.loginHandler)))
 
 	statusServer := &http.Server{
 		ReadTimeout:  5 * time.Second,
