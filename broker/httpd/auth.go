@@ -56,7 +56,7 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (s *Server) getRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
 
 	remoteCookie, err := r.Cookie(constants.AuthCookieName)
 	if err != nil {
