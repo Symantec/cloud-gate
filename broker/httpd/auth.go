@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/Symantec/cloud-gate/lib/constants"
 )
 
 func randomStringGeneration() (string, error) {
@@ -39,9 +41,9 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expires := time.Now().Add(time.Hour * cookieExpirationHours)
+	expires := time.Now().Add(time.Hour * constants.CookieExpirationHours)
 
-	userCookie := http.Cookie{Name: authCookieName, Value: randomString, Path: "/", Expires: expires, HttpOnly: true, Secure: true}
+	userCookie := http.Cookie{Name: constants.AuthCookieName, Value: randomString, Path: "/", Expires: expires, HttpOnly: true, Secure: true}
 
 	http.SetCookie(w, &userCookie)
 
@@ -54,12 +56,12 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (s *Server) getRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
 
-	remoteCookie, err := r.Cookie(authCookieName)
+	remoteCookie, err := r.Cookie(constants.AuthCookieName)
 	if err != nil {
 		s.logger.Println(err)
-		http.Redirect(w, r, loginPath, http.StatusFound)
+		http.Redirect(w, r, constants.LoginPath, http.StatusFound)
 		return "", err
 	}
 	s.cookieMutex.Lock()
@@ -67,11 +69,11 @@ func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 	authInfo, ok := s.authCookie[remoteCookie.Value]
 
 	if !ok {
-		http.Redirect(w, r, loginPath, http.StatusFound)
+		http.Redirect(w, r, constants.LoginPath, http.StatusFound)
 		return "", errors.New("Cookie not found")
 	}
 	if authInfo.ExpiresAt.Before(time.Now()) {
-		http.Redirect(w, r, loginPath, http.StatusFound)
+		http.Redirect(w, r, constants.LoginPath, http.StatusFound)
 		return "", errors.New("Expired Cookie")
 	}
 	return authInfo.Username, nil
