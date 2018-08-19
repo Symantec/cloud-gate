@@ -18,7 +18,8 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-const masterAWSAccountName = "broker-master"
+// TODO: these should come in from config
+const masterAWSProfileName = "broker-master"
 const masterRoleName = "CPEBrokerRole"
 
 func (b *Broker) accountIDFromName(accountName string) (string, error) {
@@ -78,7 +79,7 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 
 	b.logger.Debugf(2, "stsClient=%v", stsClient)
 
-	//roleName := "CPEBrokerRole"
+	// TODO: roleSessionName will come in from param in latter patches
 	roleSessionName := "brokermaster"
 	var durationSeconds int64
 	durationSeconds = 1800
@@ -118,7 +119,7 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 }
 
 func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, error) {
-	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, masterRoleName)
+	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, masterRoleName)
 	if err != nil {
 		b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
 		return nil, err
