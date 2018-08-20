@@ -1,10 +1,16 @@
 package httpd
 
+type cloudAccountInfo struct {
+	Name           string
+	AvailableRoles []string
+}
+
 type consolePageTemplateData struct {
-	Title        string
-	AuthUsername string
-	JSSources    []string
-	ErrorMessage string
+	Title         string
+	AuthUsername  string
+	JSSources     []string
+	ErrorMessage  string
+	CloudAccounts map[string]cloudAccountInfo
 }
 
 //Should be a template
@@ -27,6 +33,28 @@ const consoleAccessTemplateText = `
         {{if .ErrorMessage}}
         <p style="color:red;">{{.ErrorMessage}} </p>
         {{end}}
+	<div id="accounts">
+          <table>
+	     <tr>
+	       <th>Environment</th>
+	       <th>Roles</th>
+	     </tr>
+	   {{range $key, $value := .CloudAccounts}}
+	     <tr>
+	        <form action="/getconsole">
+		<input type="hidden" name="accountName" value="{{$value.Name}}">
+	        <td>{{$key}}
+		</td>
+		<td>
+		{{range $index, $role:= $value.AvailableRoles}}
+		     <button type="submit" name="rolename" value="{{$role}}">{{$role}}</button>
+		{{end}}
+		</td>
+		</form>
+	     </tr>
+	   {{end}}
+	  </table>
+	</div>
         </div>
     {{template "footer" . }}
     </div>

@@ -4,19 +4,36 @@ import (
 	"errors"
 
 	"github.com/Symantec/Dominator/lib/log"
+	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/configuration"
+	"github.com/Symantec/cloud-gate/lib/userinfo"
 )
 
 type Broker struct {
-	config *configuration.Configuration
-	logger log.DebugLogger
+	config              *configuration.Configuration
+	userInfo            userinfo.UserInfo
+	credentialsFilename string
+	logger              log.DebugLogger
 }
 
-func New(logger log.DebugLogger) *Broker {
-	return &Broker{logger: logger}
+func New(userInfo userinfo.UserInfo,
+	credentialsFilename string,
+	logger log.DebugLogger) *Broker {
+	return &Broker{userInfo: userInfo,
+		credentialsFilename: credentialsFilename,
+		logger:              logger}
 }
 
 func (b *Broker) UpdateConfiguration(
 	config *configuration.Configuration) error {
-	return errors.New("not implemented")
+	if config == nil {
+		return errors.New("nill config passed")
+	}
+	b.logger.Debugf(1, "config=%+v", *config)
+	b.config = config
+	return nil
+}
+
+func (b *Broker) GetUserAllowedAccounts(username string) ([]broker.PermittedAccount, error) {
+	return b.getUserAllowedAccounts(username)
 }
