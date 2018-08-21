@@ -6,7 +6,7 @@ import (
 )
 
 func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
-	authUser, err := s.GetRemoteUserName(w, r)
+	authUser, err := s.getRemoteUserName(w, r)
 	if err != nil {
 		return
 	}
@@ -38,7 +38,7 @@ func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
-	authUser, err := s.GetRemoteUserName(w, r)
+	authUser, err := s.getRemoteUserName(w, r)
 	if err != nil {
 		return
 	}
