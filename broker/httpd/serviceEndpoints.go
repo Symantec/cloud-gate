@@ -42,13 +42,13 @@ func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	/*
-		if r.Method != "POST" {
-			s.logger.Printf("Invalid metdhor for getConsole username for %s", authUser)
-			http.Error(w, "error", http.StatusMethodNotAllowed)
-			return
-		}
-	*/
+
+	if !(r.Method == "POST" || r.Method == "GET") {
+		s.logger.Printf("Invalid metdhor for getConsole username for %s", authUser)
+		http.Error(w, "error", http.StatusMethodNotAllowed)
+		return
+	}
+
 	err = r.ParseForm()
 	if err != nil {
 		s.logger.Println(err)
