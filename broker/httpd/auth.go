@@ -57,6 +57,13 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
+	// If you have a verified cert, no need for cookies
+	if r.TLS != nil {
+		if len(r.TLS.VerifiedChains) > 0 {
+			clientName := r.TLS.VerifiedChains[0][0].Subject.CommonName
+			return clientName, nil
+		}
+	}
 
 	remoteCookie, err := r.Cookie(constants.AuthCookieName)
 	if err != nil {
