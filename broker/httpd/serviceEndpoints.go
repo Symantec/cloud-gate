@@ -44,7 +44,7 @@ func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !(r.Method == "POST" || r.Method == "GET") {
-		s.logger.Printf("Invalid metdhor for getConsole username for %s", authUser)
+		s.logger.Printf("Invalid method for getConsole username for %s", authUser)
 		http.Error(w, "error", http.StatusMethodNotAllowed)
 		return
 	}
@@ -78,7 +78,7 @@ func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err = s.brokers["aws"].UserAllowedToAssumeRole(authUser, accountName, roleName)
+	ok, err = s.brokers["aws"].IsUserAllowedToAssumeRole(authUser, accountName, roleName)
 	if !ok {
 		http.Error(w, "Invalid account or Role", http.StatusForbidden)
 		return

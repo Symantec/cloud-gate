@@ -255,7 +255,7 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	return b.getUserAllowedAccountsFromGroups(userGroups)
 }
 
-func (b *Broker) userAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
+func (b *Broker) isUserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
 	// TODO: could be made more efficient, dont need to know all accounts, just one account.
 	permittedAccount, err := b.getUserAllowedAccounts(username)
 	if err != nil {
