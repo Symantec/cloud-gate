@@ -37,3 +37,11 @@ func (b *Broker) UpdateConfiguration(
 func (b *Broker) GetUserAllowedAccounts(username string) ([]broker.PermittedAccount, error) {
 	return b.getUserAllowedAccounts(username)
 }
+
+func (b *Broker) IsUserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
+	return b.isUserAllowedToAssumeRole(username, accountName, roleName)
+}
+
+func (b *Broker) GetConsoleURLForAccountRole(accountName string, roleName string, userName string) (string, error) {
+	return b.getConsoleURLForAccountRole(accountName, roleName, userName)
+}

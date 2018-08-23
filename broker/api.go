@@ -13,4 +13,6 @@ type PermittedAccount struct {
 type Broker interface {
 	UpdateConfiguration(config *configuration.Configuration) error
 	GetUserAllowedAccounts(username string) ([]PermittedAccount, error)
+	IsUserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error)
+	GetConsoleURLForAccountRole(accountName string, roleName string, username string) (string, error)
 }

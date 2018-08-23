@@ -1,8 +1,12 @@
 package aws
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -64,7 +68,7 @@ func (b *Broker) getCredentialsFromProfile(profileName string) (*credentials.Cre
 	return sessionCredentials, region, nil
 }
 
-func (b *Broker) withProfileAssumeRole(accountName string, profileName string, roleName string) (*sts.AssumeRoleOutput, error) {
+func (b *Broker) withProfileAssumeRole(accountName string, profileName string, roleName string, roleSessionName string) (*sts.AssumeRoleOutput, error) {
 	sessionCredentials, region, err := b.getCredentialsFromProfile(profileName)
 	if err != nil {
 		return nil, err
@@ -79,8 +83,6 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 
 	b.logger.Debugf(2, "stsClient=%v", stsClient)
 
-	// TODO: roleSessionName will come in from param in latter patches
-	roleSessionName := "brokermaster"
 	var durationSeconds int64
 	durationSeconds = 1800
 	accountID, err := b.accountIDFromName(accountName)
@@ -119,7 +121,7 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 }
 
 func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, error) {
-	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, masterRoleName)
+	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, masterRoleName, "brokermaster")
 	if err != nil {
 		b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
 		return nil, err
@@ -251,4 +253,102 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	b.logger.Debugf(1, "UserGroups for '%s' =%+v", username, userGroups)
 
 	return b.getUserAllowedAccountsFromGroups(userGroups)
+}
+
+func (b *Broker) isUserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
+	// TODO: could be made more efficient, dont need to know all accounts, just one account.
+	permittedAccount, err := b.getUserAllowedAccounts(username)
+	if err != nil {
+		return false, err
+	}
+	for _, account := range permittedAccount {
+		if account.Name != accountName {
+			continue
+		}
+		for _, permittedRoleName := range account.PermittedRoleName {
+			if permittedRoleName == roleName {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+type ExchangeCredentialsJSON struct {
+	SessionId    string `json:"sessionId"`
+	SessionKey   string `json:"sessionKey"`
+	SessionToken string `json:"sessionToken"`
+}
+
+type SessionTokenResponseJSON struct {
+	SigninToken string `json:"SigninToken"`
+}
+
+func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string, userName string) (string, error) {
+	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, roleName, userName)
+	if err != nil {
+		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
+		// try using a direct role if possible then
+		assumeRoleOutput, err = b.withProfileAssumeRole(accountName, accountName, roleName, userName)
+		if err != nil {
+			b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
+			return "", err
+		}
+	}
+	b.logger.Printf("assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
+
+	sessionCredentials := ExchangeCredentialsJSON{
+		SessionId:    *assumeRoleOutput.Credentials.AccessKeyId,
+		SessionKey:   *assumeRoleOutput.Credentials.SecretAccessKey,
+		SessionToken: *assumeRoleOutput.Credentials.SessionToken,
+	}
+	b.logger.Debugf(2, "sessionCredentials=%v", sessionCredentials)
+
+	bcreds, err := json.Marshal(sessionCredentials)
+	if err != nil {
+		return "", err
+	}
+	creds := url.QueryEscape(string(bcreds[:]))
+	b.logger.Debugf(1, "sessionCredentials-escaped=%v", creds)
+
+	req, err := http.NewRequest("GET", "https://signin.aws.amazon.com/federation", nil)
+	if err != nil {
+		return "", err
+	}
+	q := req.URL.Query()
+	q.Add("Action", "getSigninToken")
+	q.Add("Session", string(bcreds[:]))
+	req.URL.RawQuery = q.Encode()
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	b.logger.Debugf(2, "resp=%+v", resp)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode >= 300 {
+		return "", fmt.Errorf(string(body))
+	}
+	b.logger.Debugf(1, "resp=%s", string(body))
+
+	var tokenOutput SessionTokenResponseJSON
+	err = json.Unmarshal(body, &tokenOutput)
+	if err != nil {
+		return "", err
+	}
+	awsDestinationURL := "https://console.aws.amazon.com/"
+	targetUrl := fmt.Sprintf("https://signin.aws.amazon.com/federation?Action=login&Issuer=https://example.com&Destination=%s&SigninToken=%s", awsDestinationURL, tokenOutput.SigninToken)
+
+	b.logger.Debugf(1, "targetURL=%s", targetUrl)
+	//TODO check region from account config
+	//region := "us-east-1"
+
+	//return "", errors.New("Not implemented")
+	return targetUrl, nil
 }
