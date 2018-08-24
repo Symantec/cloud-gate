@@ -22,7 +22,8 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-const masterAWSAccountName = "broker-master"
+// TODO: these should come in from config
+const masterAWSProfileName = "broker-master"
 const masterRoleName = "CPEBrokerRole"
 
 func (b *Broker) accountIDFromName(accountName string) (string, error) {
@@ -82,8 +83,6 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 
 	b.logger.Debugf(2, "stsClient=%v", stsClient)
 
-	//roleName := "CPEBrokerRole"
-	//roleSessionName := "brokermaster"
 	var durationSeconds int64
 	durationSeconds = 1800
 	accountID, err := b.accountIDFromName(accountName)
@@ -122,7 +121,7 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 }
 
 func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, error) {
-	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, masterRoleName, "brokermaster")
+	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, masterRoleName, "brokermaster")
 	if err != nil {
 		b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
 		return nil, err
@@ -256,7 +255,7 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	return b.getUserAllowedAccountsFromGroups(userGroups)
 }
 
-func (b *Broker) userAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
+func (b *Broker) isUserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
 	// TODO: could be made more efficient, dont need to know all accounts, just one account.
 	permittedAccount, err := b.getUserAllowedAccounts(username)
 	if err != nil {
@@ -286,7 +285,7 @@ type SessionTokenResponseJSON struct {
 }
 
 func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string, userName string) (string, error) {
-	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
+	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, roleName, userName)
 	if err != nil {
 		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
 		// try using a direct role if possible then
@@ -355,7 +354,7 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 }
 
 func (b *Broker) generateTokenCredentials(accountName string, roleName string, userName string) (*broker.AWSCredentialsJSON, error) {
-	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
+	assumeRoleOutput, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, roleName, userName)
 	if err != nil {
 		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
 		// try using a direct role if possible then

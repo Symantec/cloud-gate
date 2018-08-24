@@ -4,7 +4,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	//"time"
 	"regexp"
 
 	"github.com/Symantec/Dominator/lib/log"
@@ -38,7 +37,6 @@ func (uinfo *UserInfo) extractCNFromDNString(input []string, groupPrefix string)
 	if err != nil {
 		return nil, err
 	}
-	//re := regexp.MustCompile("^cn=([^,]+),.*")
 	uinfo.logger.Debugf(1, "input=%v ", input)
 	for _, dn := range input {
 		matches := re.FindStringSubmatch(dn)
@@ -57,7 +55,6 @@ func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) ([]st
 	attributesOfInterest := []string{"memberOf", "mail"}
 	ldapSuccess := false
 	var userAttributes map[string][]string
-	//userAttributes = make(map[string][]string)
 	var err error
 	for _, ldapUrl := range uinfo.ldapURL {
 		userAttributes, err = authutil.GetLDAPUserAttributes(*ldapUrl, uinfo.bindUsername, uinfo.bindPassword,
