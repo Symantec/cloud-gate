@@ -1,12 +1,31 @@
 package staticconfiguration
 
 import (
+	"bufio"
 	"errors"
 	"os"
 
 	"github.com/Symantec/cloud-gate/lib/constants"
 	"gopkg.in/yaml.v2"
 )
+
+func getClusterSecretsFile(culterSecretsFilename string) ([]string, error) {
+	file, err := os.Open(culterSecretsFilename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	var rarray []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		rarray = append(rarray, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return rarray, nil
+}
 
 func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 	var config StaticConfiguration
@@ -37,6 +56,10 @@ func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 	if config.Base.AccountConfigurationCheckInterval == 0 {
 		config.Base.AccountConfigurationCheckInterval =
 			constants.DefaultAccountConfigurationCheckInterval
+	}
+	config.Base.SharedSecrets, err = getClusterSecretsFile(config.Base.ClusterSharedSecretFilename)
+	if err != nil {
+		return nil, err
 	}
 
 	return &config, nil

@@ -14,12 +14,18 @@ type BaseConfig struct {
 	AccountConfigurationCheckInterval time.Duration `yaml:"account_configuration_check_interval"`
 	ClientCAFilename                  string        `yaml:"client_ca_filename"`
 	SharedDataDirectory               string        `yaml:"shared_data_directory"`
+	ClusterSharedSecretFilename       string        `yaml:"cluster_shared_secret_filename"`
+	SharedSecrets                     []string
 }
 
 type OpenIDConfig struct {
 	ClientID     string `yaml:"client_id"`
 	ClientSecret string `yaml:"client_secret"`
 	ProviderURL  string `yaml:"provider_url"`
+	AuthURL      string `yaml:"auth_url"`
+	TokenURL     string `yaml:"token_url"`
+	UserinfoURL  string `yaml:"userinfo_url"`
+	Scopes       string `yaml:"scopes"`
 }
 
 type UserInfoLDAPSource struct {
