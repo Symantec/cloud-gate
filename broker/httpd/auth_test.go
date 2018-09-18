@@ -11,6 +11,7 @@ import (
 	"testing"
 	//"time"
 	"github.com/Symantec/Dominator/lib/log/debuglogger"
+	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
 	//"golang.org/x/net/context"
 	//"golang.org/x/oauth2"
 )
@@ -22,9 +23,11 @@ func TestGetRemoteUserNameHandler(t *testing.T) {
 	slogger := stdlog.New(os.Stderr, "", stdlog.LstdFlags)
 	logger := debuglogger.New(slogger)
 	server := &Server{
-		logger: logger,
+		logger:       logger,
+		staticConfig: &staticconfiguration.StaticConfiguration{},
 	}
 	server.authCookie = make(map[string]AuthCookie)
+	server.staticConfig.Base.SharedSecrets = []string{"secret"}
 
 	/// Test with no cookies... inmediate redirect
 	urlList := []string{"/", "/static/foo"}
