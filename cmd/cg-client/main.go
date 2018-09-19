@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"gopkg.in/ini.v1"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -29,7 +30,14 @@ var (
 	askAdminRoles        = flag.Bool("askAdminRoles", false, "ask also for admin roles")
 	outputProfilePrefix  = flag.String("outputProfilePrefix", "saml-", "prefix to put to profile names $PREFIX$accountName-$roleName")
 	lowerCaseProfileName = flag.Bool("lowerCaseProfileName", true, "ask also for admin roles")
+	configFilename       = flag.String("configFile", filepath.Join(os.Getenv("HOME"), ".config", "cloud-gate", "config.yml"), "An Ini file with credentials")
 )
+
+type AppConfigFile struct {
+	BaseURL              string `yaml:"base_url"`
+	OutputProfilePrefix  string `yaml:"output_profile_prefix"`
+	LowerCaseProfileName bool   `yaml:"lower_case_profile_name"`
+}
 
 type cloudAccountInfo struct {
 	Name           string
@@ -46,6 +54,46 @@ type AWSCredentialsJSON struct {
 	SessionKey   string `json:"sessionKey"`
 	SessionToken string `json:"sessionToken"`
 	Region       string `json:"region,omitempty"`
+}
+
+func loadVerifyConfigFile(configFilename string) (AppConfigFile, error) {
+	var config AppConfigFile
+	if _, err := os.Stat(configFilename); os.IsNotExist(err) {
+		err = errors.New("No config file: please re-run with -configHost")
+		return config, err
+	}
+	source, err := ioutil.ReadFile(configFilename)
+	if err != nil {
+		err = errors.New("cannot read config file")
+		return config, err
+	}
+	err = yaml.Unmarshal(source, &config)
+	if err != nil {
+		err = errors.New("Cannot parse config file")
+		return config, err
+	}
+
+	if len(config.BaseURL) < 1 {
+		err = errors.New("Invalid Config file... no place get the credentials")
+		return config, err
+	}
+	// TODO: ensure all enpoints are https urls
+	return config, nil
+}
+
+func saveDefaultConfig(configFilename string) error {
+	os.MkdirAll(filepath.Dir(configFilename), 0770)
+	config := AppConfigFile{
+		BaseURL:              "https://cloud-gate.symcpe.net",
+		OutputProfilePrefix:  "saml-",
+		LowerCaseProfileName: true,
+	}
+	configBytes, err := yaml.Marshal(config)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(configFilename, configBytes, 0644)
+
 }
 
 const badReturnErrText = "bad return code"
@@ -183,6 +231,11 @@ func getCertExpirationTime(certFilename string) (time.Time, error) {
 
 func main() {
 	flag.Parse()
+
+	err := saveDefaultConfig(*configFilename)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	certNotAfter, err := getCertExpirationTime(*certFilename)
 	if err != nil {
