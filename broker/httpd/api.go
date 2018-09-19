@@ -44,9 +44,10 @@ type Server struct {
 }
 
 const secondsBetweenCleanup = 60
-const loginPath = "/login/"
-const oidcCallbackPath = "/auth/oidcsimple/callback"
 const cookieExpirationHours = 3
+const maxAgeSecondsRedirCookie = 120
+const redirCookieName = "oauth2_redir"
+const oauth2redirectPath = "/oauth2/redirectendpoint"
 
 var authCookieName = "auth_cookie"
 

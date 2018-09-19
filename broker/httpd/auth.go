@@ -17,6 +17,32 @@ import (
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
+type oauth2StateJWT struct {
+	Issuer     string   `json:"iss,omitempty"`
+	Subject    string   `json:"sub,omitempty"`
+	Audience   []string `json:"aud,omitempty"`
+	Expiration int64    `json:"exp,omitempty"`
+	NotBefore  int64    `json:"nbf,omitempty"`
+	IssuedAt   int64    `json:"iat,omitempty"`
+	ReturnURL  string   `json:"return_url,omitempty"`
+}
+
+type accessToken struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:expires_in`
+	IDToken     string `json:"id_token"`
+}
+
+type openidConnectUserInfo struct {
+	Subject           string `json:"sub"`
+	Name              string `json:"name"`
+	Login             string `json:"login,omitempty"`
+	Username          string `json:"username,omitempty"`
+	PreferredUsername string `json:"preferred_username,omitempty"`
+	Email             string `json:"email,omitempty"`
+}
+
 func randomStringGeneration() (string, error) {
 	const size = 32
 	bytes := make([]byte, size)
@@ -47,20 +73,6 @@ func (s *Server) setAndStoreAuthCookie(w http.ResponseWriter, username string) e
 	return nil
 }
 
-const maxAgeSecondsRedirCookie = 120
-const redirCookieName = "oauth2_redir"
-const oauth2redirectPath = "/oauth2/redirectendpoint"
-
-type oauth2StateJWT struct {
-	Issuer     string   `json:"iss,omitempty"`
-	Subject    string   `json:"sub,omitempty"`
-	Audience   []string `json:"aud,omitempty"`
-	Expiration int64    `json:"exp,omitempty"`
-	NotBefore  int64    `json:"nbf,omitempty"`
-	IssuedAt   int64    `json:"iat,omitempty"`
-	ReturnURL  string   `json:"return_url,omitempty"`
-}
-
 func (s *Server) getRedirURL(r *http.Request) string {
 	return "https://" + r.Host + oauth2redirectPath
 }
@@ -89,14 +101,13 @@ func (s *Server) generateAuthCodeURL(state string, r *http.Request) string {
 	return buf.String()
 }
 
-func (s *Server) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter, r *http.Request) {
-
+func (s *Server) generateValidStateString(r *http.Request) (string, error) {
 	key := []byte(s.staticConfig.Base.SharedSecrets[0])
 	sig, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.HS256, Key: key}, (&jose.SignerOptions{}).WithType("JWT"))
 	if err != nil {
 		s.logger.Printf("err=%s", err)
-		http.Error(w, "Internal Error ", http.StatusInternalServerError)
-		return
+		//http.Error(w, "Internal Error ", http.StatusInternalServerError)
+		return "", err
 	}
 	issuer := "cloud-gate"
 	subject := "state:" + redirCookieName
@@ -106,7 +117,29 @@ func (s *Server) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter, r *ht
 	stateToken.NotBefore = time.Now().Unix()
 	stateToken.IssuedAt = stateToken.NotBefore
 	stateToken.Expiration = stateToken.IssuedAt + maxAgeSecondsRedirCookie
-	stateString, err := jwt.Signed(sig).Claims(stateToken).CompactSerialize()
+	return jwt.Signed(sig).Claims(stateToken).CompactSerialize()
+}
+
+// This is where the redirect to the oath2 provider is computed.
+func (s *Server) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter, r *http.Request) {
+	/*
+		key := []byte(s.staticConfig.Base.SharedSecrets[0])
+		sig, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.HS256, Key: key}, (&jose.SignerOptions{}).WithType("JWT"))
+		if err != nil {
+			s.logger.Printf("err=%s", err)
+			http.Error(w, "Internal Error ", http.StatusInternalServerError)
+			return
+		}
+		issuer := "cloud-gate"
+		subject := "state:" + redirCookieName
+		stateToken := oauth2StateJWT{Issuer: issuer, Subject: subject,
+			Audience:  []string{issuer},
+			ReturnURL: r.URL.String()}
+		stateToken.NotBefore = time.Now().Unix()
+		stateToken.IssuedAt = stateToken.NotBefore
+		stateToken.Expiration = stateToken.IssuedAt + maxAgeSecondsRedirCookie
+	*/
+	stateString, err := s.generateValidStateString(r)
 	if err != nil {
 		s.logger.Printf("err=%s", err)
 		http.Error(w, "Internal Error ", http.StatusInternalServerError)
@@ -116,6 +149,7 @@ func (s *Server) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, s.generateAuthCodeURL(stateString, r), http.StatusFound)
 }
 
+//Next are the functions fo checking the callback
 func (s *Server) JWTClaims(t *jwt.JSONWebToken, dest ...interface{}) (err error) {
 	for _, key := range s.staticConfig.Base.SharedSecrets {
 		binkey := []byte(key)
@@ -129,22 +163,6 @@ func (s *Server) JWTClaims(t *jwt.JSONWebToken, dest ...interface{}) (err error)
 	}
 	err = errors.New("No valid key found")
 	return err
-}
-
-type accessToken struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:expires_in`
-	IDToken     string `json:"id_token"`
-}
-
-type openidConnectUserInfo struct {
-	Subject           string `json:"sub"`
-	Name              string `json:"name"`
-	Login             string `json:"login,omitempty"`
-	Username          string `json:"username,omitempty"`
-	PreferredUsername string `json:"preferred_username,omitempty"`
-	Email             string `json:"email,omitempty"`
 }
 
 func getUsernameFromUserinfo(userInfo openidConnectUserInfo) string {
@@ -161,35 +179,40 @@ func getUsernameFromUserinfo(userInfo openidConnectUserInfo) string {
 	return username
 }
 
-func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Request) {
-	authCode := r.URL.Query().Get("code")
-	if len(authCode) < 1 {
-		s.logger.Println("null code")
-		http.Error(w, "null code", http.StatusUnauthorized)
-		return
+func (s *Server) getBytesFromSuccessfullPost(url string, data url.Values) ([]byte, error) {
+	response, err := s.netClient.PostForm(url, data)
+	if err != nil {
+		s.logger.Printf("err=%s", err)
+		return nil, err
+	}
+	defer response.Body.Close()
 
+	responseBody, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		s.logger.Printf("err=%s", err)
+		return nil, err
 	}
 
+	if response.StatusCode >= 300 {
+		s.logger.Debugf(1, string(responseBody))
+		return nil, errors.New("invalid status code")
+	}
+	return responseBody, nil
+}
+
+func (s *Server) getVerifyReturnStateJWT(r *http.Request) (oauth2StateJWT, error) {
+	inboundJWT := oauth2StateJWT{}
 	serializedState := r.URL.Query().Get("state")
 	if len(serializedState) < 1 {
-		s.logger.Println("null inboundState")
-		http.Error(w, "null inboundState", http.StatusUnauthorized)
-		return
+		return inboundJWT, errors.New("null inbound state")
 	}
 	tok, err := jwt.ParseSigned(serializedState)
 	if err != nil {
-		//return rvalue, err
-		s.logger.Printf("bad inboundState, error on parsing %s", err)
-		http.Error(w, "bad inboundState", http.StatusUnauthorized)
-		return
+		return inboundJWT, err
 	}
-	s.logger.Printf("tok=%+v", tok)
-	inboundJWT := oauth2StateJWT{}
 	if err := s.JWTClaims(tok, &inboundJWT); err != nil {
 		s.logger.Printf("error parsing claims err=%s", err)
-		//return rvalue, err
-		http.Error(w, "bad inboundState", http.StatusUnauthorized)
-		return
+		return inboundJWT, err
 	}
 	// At this point we know the signature is valid, but now we must
 	//validate the contents of the jtw token
@@ -198,12 +221,32 @@ func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Reques
 	if inboundJWT.Issuer != issuer || inboundJWT.Subject != subject ||
 		inboundJWT.NotBefore > time.Now().Unix() || inboundJWT.Expiration < time.Now().Unix() {
 		err = errors.New("invalid JWT values")
-		http.Error(w, "bad inboundState", http.StatusUnauthorized)
+		return inboundJWT, err
+	}
+	return inboundJWT, nil
+}
+
+func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		s.logger.Debugf(1, "Bad method on redirect, should only be GET")
+		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		return
+	}
+	authCode := r.URL.Query().Get("code")
+	if len(authCode) < 1 {
+		s.logger.Println("null code")
+		http.Error(w, "null code", http.StatusUnauthorized)
+		return
+	}
+	inboundJWT, err := s.getVerifyReturnStateJWT(r)
+	if err != nil {
+		s.logger.Printf("error processing state err=%s", err)
+		http.Error(w, "null or bad inboundState", http.StatusUnauthorized)
 		return
 	}
 	// OK state  is valid.. now we perform the token exchange
 	redirectURL := s.getRedirURL(r)
-	tokenResp, err := s.netClient.PostForm(s.staticConfig.OpenID.TokenURL,
+	tokenRespBody, err := s.getBytesFromSuccessfullPost(s.staticConfig.OpenID.TokenURL,
 		url.Values{"redirect_uri": {redirectURL},
 			"code":          {authCode},
 			"grant_type":    {"authorization_code"},
@@ -215,20 +258,7 @@ func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "bad transaction with openic context ", http.StatusInternalServerError)
 		return
 	}
-	defer tokenResp.Body.Close()
 
-	tokenRespBody, err := ioutil.ReadAll(tokenResp.Body)
-	if err != nil {
-		s.logger.Printf("err=%s", err)
-		http.Error(w, "bad transaction with openic context ", http.StatusInternalServerError)
-		return
-	}
-
-	if tokenResp.StatusCode >= 300 {
-		s.logger.Printf(string(tokenRespBody))
-		http.Error(w, "bad transaction with openic context ", http.StatusInternalServerError)
-		return
-	}
 	var oauth2AccessToken accessToken
 	err = json.Unmarshal(tokenRespBody, &oauth2AccessToken)
 	if err != nil {
@@ -243,25 +273,11 @@ func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// we could stop here if we check the signature, but lets keep going.
-	userInfoResp, err := s.netClient.PostForm(s.staticConfig.OpenID.UserinfoURL,
+	// Now we use the access_token (from token exchange) to get userinfo
+	userInfoRespBody, err := s.getBytesFromSuccessfullPost(s.staticConfig.OpenID.UserinfoURL,
 		url.Values{"access_token": {oauth2AccessToken.AccessToken}})
 	if err != nil {
 		s.logger.Printf("err=%s", err)
-		http.Error(w, "bad transaction with openic context ", http.StatusInternalServerError)
-		return
-	}
-	defer userInfoResp.Body.Close()
-
-	userInfoRespBody, err := ioutil.ReadAll(userInfoResp.Body)
-	if err != nil {
-		s.logger.Printf("err=%s", err)
-		http.Error(w, "bad transaction with openic context ", http.StatusInternalServerError)
-		return
-	}
-
-	if userInfoResp.StatusCode >= 300 {
-		s.logger.Printf(string(tokenRespBody))
 		http.Error(w, "bad transaction with openic context ", http.StatusInternalServerError)
 		return
 	}
@@ -282,9 +298,7 @@ func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	destinationPath := inboundJWT.ReturnURL
-
 	http.Redirect(w, r, destinationPath, http.StatusFound)
-
 }
 
 func setupSecurityHeaders(w http.ResponseWriter) error {
@@ -310,7 +324,7 @@ func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 
 	remoteCookie, err := r.Cookie(authCookieName)
 	if err != nil {
-		s.logger.Println(err)
+		s.logger.Debugf(1, "Err cookie %s", err)
 		s.oauth2DoRedirectoToProviderHandler(w, r)
 		return "", err
 	}
