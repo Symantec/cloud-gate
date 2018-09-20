@@ -18,11 +18,18 @@ func getClusterSecretsFile(culterSecretsFilename string) ([]string, error) {
 	var rarray []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		rarray = append(rarray, scanner.Text())
+		line := scanner.Text()
+		if len(line) < 2 {
+			continue
+		}
+		rarray = append(rarray, line)
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	}
+	if len(rarray) < 1 {
+		return nil, errors.New("empty cluster secretFile")
 	}
 	return rarray, nil
 }
@@ -56,6 +63,19 @@ func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 	if config.Base.AccountConfigurationCheckInterval == 0 {
 		config.Base.AccountConfigurationCheckInterval =
 			constants.DefaultAccountConfigurationCheckInterval
+	}
+	//verify oauth2 setup
+	if len(config.OpenID.AuthURL) < 1 ||
+		len(config.OpenID.TokenURL) < 1 ||
+		len(config.OpenID.UserinfoURL) < 1 ||
+		len(config.OpenID.Scopes) < 1 ||
+		len(config.OpenID.ClientID) < 1 {
+		return nil, errors.New("invalid openid config")
+	}
+
+	//verify shared secrets
+	if len(config.Base.ClusterSharedSecretFilename) < 0 {
+		return nil, errors.New("missing shared cluster secrets")
 	}
 	config.Base.SharedSecrets, err = getClusterSecretsFile(config.Base.ClusterSharedSecretFilename)
 	if err != nil {
