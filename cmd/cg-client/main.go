@@ -31,6 +31,7 @@ var (
 	outputProfilePrefix  = flag.String("outputProfilePrefix", "saml-", "prefix to put to profile names $PREFIX$accountName-$roleName")
 	lowerCaseProfileName = flag.Bool("lowerCaseProfileName", true, "ask also for admin roles")
 	configFilename       = flag.String("configFile", filepath.Join(os.Getenv("HOME"), ".config", "cloud-gate", "config.yml"), "An Ini file with credentials")
+	oldBotoCompat        = flag.Bool("oldBotoCompat", false, "add aws_security_token for OLD boto installations (not recommended)")
 )
 
 type AppConfigFile struct {
@@ -134,6 +135,11 @@ func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName strin
 	cfg.Section(fileProfile).Key("aws_access_key_id").SetValue(awsCreds.SessionId)
 	cfg.Section(fileProfile).Key("aws_secret_access_key").SetValue(awsCreds.SessionKey)
 	cfg.Section(fileProfile).Key("aws_session_token").SetValue(awsCreds.SessionToken)
+	if *oldBotoCompat {
+		cfg.Section(fileProfile).Key("aws_security_token").SetValue(awsCreds.SessionToken)
+	} else {
+		cfg.Section(fileProfile).DeleteKey("aws_security_token")
+	}
 
 	return nil
 }
