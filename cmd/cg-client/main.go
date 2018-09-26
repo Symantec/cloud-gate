@@ -138,6 +138,19 @@ func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName strin
 	return nil
 }
 
+func getParseURLEnvVariable(name string) (*url.URL, error) {
+	envVariable := os.Getenv(name)
+	if len(envVariable) < 1 {
+		return nil, nil
+	}
+	envUrl, err := url.Parse(envVariable)
+	if err != nil {
+		return nil, err
+	}
+
+	return envUrl, nil
+}
+
 func getCerts(cert tls.Certificate, baseUrl string,
 	credentialFilename string, askAdminRoles bool,
 	outputProfilePrefix string, lowerCaseProfileName bool) error {
@@ -162,7 +175,18 @@ func getCerts(cert tls.Certificate, baseUrl string,
 	}
 	tlsConfig.BuildNameToCertificate()
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
-	client := &http.Client{Transport: transport}
+
+	// proxy env variables in ascending order of preference, lower case 'http_proxy' dominates
+	// just like curl
+	proxyEnvVariables := []string{"HTTP_PROXY", "HTTPS_PROXY", "http_proxy"}
+	for _, proxyVar := range proxyEnvVariables {
+		httpProxy, err := getParseURLEnvVariable(proxyVar)
+		if err == nil && httpProxy != nil {
+			transport.Proxy = http.ProxyURL(httpProxy)
+		}
+	}
+
+	client := &http.Client{Transport: transport, Timeout: 10 * time.Second}
 
 	// Do GET something
 	resp, err := client.Get(baseUrl)
