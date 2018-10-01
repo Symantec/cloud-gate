@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/Symantec/Dominator/lib/log"
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/configuration"
@@ -135,6 +137,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 
 	http.HandleFunc("/", server.rootHandler)
 	http.HandleFunc("/status", server.statusHandler)
+	http.Handle("/prometheus_metrics", promhttp.Handler())
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.mainEntryPointHandler)
 	serviceMux.HandleFunc("/getconsole", server.getConsoleUrlHandler)
@@ -148,13 +151,26 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	//setup openidc auth
 	serviceMux.HandleFunc(oauth2redirectPath, server.oauth2RedirectPathHandler)
 
-	statusServer := &http.Server{
+	cfg := &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+		},
+	}
+	adminSrv := &http.Server{
+		TLSConfig:    cfg,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
 	go func() {
-		err := statusServer.Serve(statusListener)
+		err := adminSrv.ServeTLS(statusListener,
+			staticConfig.Base.TLSCertFilename,
+			staticConfig.Base.TLSKeyFilename)
 		if err != nil {
 			logger.Fatalf("Failed to start status server, err=%s", err)
 		}
@@ -176,6 +192,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		PreferServerCipherSuites: true,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 		},
 		ClientAuth: tls.VerifyClientCertIfGiven,
@@ -184,7 +201,6 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	serviceServer := &http.Server{
 		Handler:      serviceMux,
 		TLSConfig:    tlsConfig,
-		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
