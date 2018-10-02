@@ -83,7 +83,9 @@ type httpLogger struct {
 }
 
 func (l httpLogger) Log(record LogRecord) {
-	fmt.Printf("%s %s %d %s\n", record.Method, record.Uri, record.Status, record.ElapsedTime)
+	fmt.Printf("%s -  %s [%s] \"%s %s %s\" %d %d\n",
+		record.Ip, record.Username, record.Time, record.Method,
+		record.Uri, record.Protocol, record.Status, record.Size)
 }
 
 func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
