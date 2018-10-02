@@ -79,6 +79,13 @@ func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
 	s.consoleAccessHandler(w, r)
 }
 
+type httpLogger struct {
+}
+
+func (l httpLogger) Log(record LogRecord) {
+	fmt.Printf("%s %s %d %s\n", record.Method, record.Uri, record.Status, record.ElapsedTime)
+}
+
 func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	userInfo userinfo.UserInfo,
 	brokers map[string]broker.Broker,
@@ -198,8 +205,9 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		ClientAuth: tls.VerifyClientCertIfGiven,
 		ClientCAs:  clientCACertPool,
 	}
+	l := httpLogger{}
 	serviceServer := &http.Server{
-		Handler:      serviceMux,
+		Handler:      NewLoggingHandler(serviceMux, l),
 		TLSConfig:    tlsConfig,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
