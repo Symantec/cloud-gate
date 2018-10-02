@@ -39,12 +39,21 @@ var (
 		},
 		[]string{"code"},
 	)
+	rpcDurationsHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "service_http_request_response_size",
+			Help: "RPC latency distributions.",
+			//Buckets: prometheus.LinearBuckets(*normMean-5**normDomain, .5**normDomain, 20),
+			Buckets: prometheus.ExponentialBuckets(10.0, 1.5, 20),
+		},
+		[]string{"code"},
+	)
 )
 
 func init() {
 	// Register the summary and the histogram with Prometheus's default registry.
 	prometheus.MustRegister(rpcDurations)
-	//		prometheus.MustRegister(rpcDurationsHistogram)
+	prometheus.MustRegister(rpcDurationsHistogram)
 }
 
 func (r *LoggingWriter) Write(p []byte) (int, error) {
@@ -218,5 +227,6 @@ func (h *LoggingHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		writer.SetCustomLogRecord("at", "after")
 	}
 	rpcDurations.WithLabelValues(fmt.Sprintf("%d", writer.logRecord.Status)).Observe(writer.logRecord.ElapsedTime.Seconds())
+	rpcDurationsHistogram.WithLabelValues(fmt.Sprintf("%d", writer.logRecord.Status)).Observe(float64(writer.logRecord.Size))
 	h.logger.Log(writer.logRecord)
 }

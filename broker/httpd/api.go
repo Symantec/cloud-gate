@@ -170,7 +170,9 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 		},
 	}
+	l := httpLogger{}
 	adminSrv := &http.Server{
+		Handler:      NewLoggingHandler(http.DefaultServeMux, l),
 		TLSConfig:    cfg,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -207,7 +209,6 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		ClientAuth: tls.VerifyClientCertIfGiven,
 		ClientCAs:  clientCACertPool,
 	}
-	l := httpLogger{}
 	serviceServer := &http.Server{
 		Handler:      NewLoggingHandler(serviceMux, l),
 		TLSConfig:    tlsConfig,
