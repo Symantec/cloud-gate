@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
+	stdlog "log"
 	"net"
 	"net/http"
 	"os"
@@ -80,12 +81,15 @@ func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type httpLogger struct {
+	AccessLogger *stdlog.Logger
 }
 
 func (l httpLogger) Log(record LogRecord) {
-	fmt.Printf("%s -  %s [%s] \"%s %s %s\" %d %d\n",
-		record.Ip, record.Username, record.Time, record.Method,
-		record.Uri, record.Protocol, record.Status, record.Size)
+	if l.AccessLogger != nil {
+		l.AccessLogger.Printf("%s -  %s [%s] \"%s %s %s\" %d %d\n",
+			record.Ip, record.Username, record.Time, record.Method,
+			record.Uri, record.Protocol, record.Status, record.Size)
+	}
 }
 
 func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
