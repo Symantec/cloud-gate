@@ -126,8 +126,12 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	server.authCookie = make(map[string]AuthCookie)
 	go server.performStateCleanup(secondsBetweenCleanup)
 
+	logBufOptions := logbuf.GetStandardOptions()
+	accessLogDirectory := filepath.Join(logBufOptions.Directory, "access")
 	server.accessLogger = serverlogger.NewWithOptions("access",
-		logbuf.Options{MaxFileSize: 10 << 20, AlsoLogToStderr: true, Quota: 100 << 20, MaxBufferLines: 100, Directory: "/tmp/fooX"},
+		logbuf.Options{MaxFileSize: 10 << 20,
+			Quota: 100 << 20, MaxBufferLines: 100,
+			Directory: accessLogDirectory},
 		stdlog.LstdFlags)
 
 	// load templates
