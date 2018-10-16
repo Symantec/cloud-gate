@@ -18,6 +18,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/Symantec/Dominator/lib/log"
+	"github.com/Symantec/Dominator/lib/log/serverlogger"
+	"github.com/Symantec/Dominator/lib/logbuf"
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
@@ -44,6 +46,7 @@ type Server struct {
 	staticConfig *staticconfiguration.StaticConfiguration
 	userInfo     userinfo.UserInfo
 	netClient    *http.Client
+	accessLogger log.DebugLogger
 }
 
 const secondsBetweenCleanup = 60
@@ -81,7 +84,7 @@ func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type httpLogger struct {
-	AccessLogger *stdlog.Logger
+	AccessLogger log.DebugLogger
 }
 
 func (l httpLogger) Log(record LogRecord) {
@@ -122,6 +125,10 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	}
 	server.authCookie = make(map[string]AuthCookie)
 	go server.performStateCleanup(secondsBetweenCleanup)
+
+	server.accessLogger = serverlogger.NewWithOptions("access",
+		logbuf.Options{MaxFileSize: 10 << 20, AlsoLogToStderr: true, Quota: 100 << 20, MaxBufferLines: 100, Directory: "/tmp/fooX"},
+		stdlog.LstdFlags)
 
 	// load templates
 	templatesPath := filepath.Join(staticConfig.Base.SharedDataDirectory, "customization_data", "templates")
@@ -174,7 +181,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 		},
 	}
-	l := httpLogger{}
+	l := httpLogger{AccessLogger: server.accessLogger}
 	adminSrv := &http.Server{
 		Handler:      NewLoggingHandler(http.DefaultServeMux, l),
 		TLSConfig:    cfg,
