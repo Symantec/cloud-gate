@@ -68,6 +68,8 @@ func (b *Broker) getCredentialsFromProfile(profileName string) (*credentials.Cre
 	return sessionCredentials, region, nil
 }
 
+const profileAssumeRoleDurationSeconds = 3600
+
 func (b *Broker) withProfileAssumeRole(accountName string, profileName string, roleName string, roleSessionName string) (*sts.AssumeRoleOutput, string, error) {
 	sessionCredentials, region, err := b.getCredentialsFromProfile(profileName)
 	if err != nil {
@@ -86,7 +88,7 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 	//roleName := "CPEBrokerRole"
 	//roleSessionName := "brokermaster"
 	var durationSeconds int64
-	durationSeconds = 3600
+	durationSeconds = profileAssumeRoleDurationSeconds
 	accountID, err := b.accountIDFromName(accountName)
 	if err != nil {
 		return nil, "", err
@@ -477,6 +479,7 @@ func (b *Broker) generateTokenCredentials(accountName string, roleName string, u
 		SessionKey:   *assumeRoleOutput.Credentials.SecretAccessKey,
 		SessionToken: *assumeRoleOutput.Credentials.SessionToken,
 		Region:       region,
+		Expiration:   time.Now().Add(time.Second * profileAssumeRoleDurationSeconds),
 	}
 	logString := fmt.Sprintf("Token credentials generated for: %s on account %s role %s", userName, accountName, roleName)
 	b.logger.Printf("%s", logString)
