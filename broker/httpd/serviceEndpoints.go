@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func (s *Server) getPreferredAcceptType(r *http.Request) string {
@@ -194,14 +195,15 @@ func (s *Server) generateTokenHandler(w http.ResponseWriter, r *http.Request) {
 	switch returnAcceptType {
 	case "text/html":
 		displayData := generateTokenPageTemplateData{
-			Title:        "Cloud-Gate credential output",
-			AuthUsername: authUser,
-			AccountName:  accountName,
-			RoleName:     roleName,
-			SessionId:    tempCredentials.SessionId,
-			SessionKey:   tempCredentials.SessionKey,
-			SessionToken: tempCredentials.SessionToken,
-			Region:       tempCredentials.Region,
+			Title:           "Cloud-Gate credential output",
+			AuthUsername:    authUser,
+			AccountName:     accountName,
+			RoleName:        roleName,
+			SessionId:       tempCredentials.SessionId,
+			SessionKey:      tempCredentials.SessionKey,
+			SessionToken:    tempCredentials.SessionToken,
+			TokenExpiration: tempCredentials.Expiration.UTC().Format(time.RFC3339),
+			Region:          tempCredentials.Region,
 		}
 
 		err = s.htmlTemplate.ExecuteTemplate(w, "generateTokenPagePage", displayData)

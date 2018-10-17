@@ -76,16 +76,17 @@ const consoleAccessTemplateText = `
 `
 
 type generateTokenPageTemplateData struct {
-	Title        string `json:",omitempty"`
-	AuthUsername string
-	JSSources    []string `json:",omitempty"`
-	ErrorMessage string   `json:",omitempty"`
-	AccountName  string
-	RoleName     string
-	SessionId    string `json:"sessionId"`
-	SessionKey   string `json:"sessionKey"`
-	SessionToken string `json:"sessionToken"`
-	Region       string `json:"region,omitempty"`
+	Title           string `json:",omitempty"`
+	AuthUsername    string
+	JSSources       []string `json:",omitempty"`
+	ErrorMessage    string   `json:",omitempty"`
+	AccountName     string
+	RoleName        string
+	SessionId       string `json:"sessionId"`
+	SessionKey      string `json:"sessionKey"`
+	SessionToken    string `json:"sessionToken"`
+	TokenExpiration string `json:"tokenExpiration"`
+	Region          string `json:"region,omitempty"`
 }
 
 const generateTokaneTemplateText = `
@@ -118,6 +119,7 @@ const generateTokaneTemplateText = `
 	aws_access_key_id = {{.SessionId}}<br>
         aws_secret_access_key= {{.SessionKey}}<br>
 	aws_session_token = {{.SessionToken}}<br>
+	token_expiration = {{.TokenExpiration}}<br>
 	</code>
 	</div>
         </div>
