@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/syslog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Symantec/Dominator/lib/log/serverlogger"
@@ -54,7 +55,9 @@ func main() {
 	}
 	logger.Debugf(1, "userinfo=%+v", userInfo)
 
+	configCacheFilename := filepath.Join(staticConfig.Base.DataDirectory, "accounts-cache.yml")
 	configChannel, err := configuration.Watch(staticConfig.Base.AccountConfigurationUrl,
+		configCacheFilename,
 		staticConfig.Base.AccountConfigurationCheckInterval, logger)
 	if err != nil {
 		logger.Fatalf("Cannot watch for configuration: %s\n", err)

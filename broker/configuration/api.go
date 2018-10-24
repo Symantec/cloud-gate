@@ -23,7 +23,7 @@ type Configuration struct {
 	AWS AWSConfiguration `yaml:"aws"`
 }
 
-func Watch(configUrl string, checkInterval time.Duration,
+func Watch(configUrl string, cacheFilename string, checkInterval time.Duration,
 	logger log.DebugLogger) (<-chan *Configuration, error) {
-	return watch(configUrl, checkInterval, logger)
+	return watch(configUrl, cacheFilename, checkInterval, logger)
 }

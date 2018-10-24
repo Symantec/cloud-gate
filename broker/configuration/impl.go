@@ -6,13 +6,15 @@ import (
 
 	"github.com/Symantec/Dominator/lib/configwatch"
 	"github.com/Symantec/Dominator/lib/log"
+	"github.com/Symantec/cloud-gate/lib/constants"
 	"gopkg.in/yaml.v2"
 )
 
-func watch(configUrl string, checkInterval time.Duration,
+func watch(configUrl string, cacheFilename string, checkInterval time.Duration,
 	logger log.DebugLogger) (<-chan *Configuration, error) {
 	configChannel := make(chan *Configuration, 1)
-	rawChannel, err := configwatch.Watch(configUrl, checkInterval, decode,
+	rawChannel, err := configwatch.WatchWithCache(configUrl, checkInterval, decode,
+		cacheFilename, constants.InitialTimeoutForAccountInfo,
 		logger)
 	if err != nil {
 		return nil, err
