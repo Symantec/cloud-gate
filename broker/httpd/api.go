@@ -77,6 +77,7 @@ func (s *Server) performStateCleanup(secsBetweenCleanup int) {
 func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
 	s.logger.Debugf(3, "top of mainEntryPointHandler")
 	if r.URL.Path == "/favicon.ico" {
+		w.Header().Set("Cache-Control", "public, max-age=120")
 		http.Redirect(w, r, "/custom_static/favicon.ico", http.StatusFound)
 		return
 	}
