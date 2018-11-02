@@ -7,8 +7,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"flag"
+	"fmt"
 	"io/ioutil"
-	//"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -20,6 +20,13 @@ import (
 
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"
+)
+
+var (
+	// Must be a global variable in the data segment so that the build
+	// process can inject the version number on the fly when building the
+	// binary. Use only from the Usage() function.
+	Version = "No version provided"
 )
 
 var (
@@ -51,10 +58,11 @@ type getAccountInfo struct {
 }
 
 type AWSCredentialsJSON struct {
-	SessionId    string `json:"sessionId"`
-	SessionKey   string `json:"sessionKey"`
-	SessionToken string `json:"sessionToken"`
-	Region       string `json:"region,omitempty"`
+	SessionId    string    `json:"sessionId"`
+	SessionKey   string    `json:"sessionKey"`
+	SessionToken string    `json:"sessionToken"`
+	Region       string    `json:"region,omitempty"`
+	Expiration   time.Time `json:"cloudgate_comment_expiration,omitempty"`
 }
 
 func loadVerifyConfigFile(configFilename string) (AppConfigFile, error) {
@@ -140,6 +148,11 @@ func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName strin
 	} else {
 		cfg.Section(fileProfile).DeleteKey("aws_security_token")
 	}
+	if !awsCreds.Expiration.IsZero() {
+		cfg.Section(fileProfile).Key("token_expiration").SetValue(awsCreds.Expiration.UTC().Format(time.RFC3339))
+	} else {
+		cfg.Section(fileProfile).DeleteKey("token_expiration")
+	}
 
 	return nil
 }
@@ -197,6 +210,10 @@ func getCerts(cert tls.Certificate, baseUrl string,
 	// Do GET something
 	resp, err := client.Get(baseUrl)
 	if err != nil {
+		log.Printf("failed to connect err=%s transport=%+v ", err, transport)
+		if resp != nil {
+			log.Printf("resp=+%v", resp)
+		}
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
@@ -259,7 +276,14 @@ func getCertExpirationTime(certFilename string) (time.Time, error) {
 	return cert.NotAfter, nil
 }
 
+func Usage() {
+	fmt.Fprintf(
+		os.Stderr, "Usage of %s (version %s):\n", os.Args[0], Version)
+	flag.PrintDefaults()
+}
+
 func main() {
+	flag.Usage = Usage
 	flag.Parse()
 
 	err := saveDefaultConfig(*configFilename)
