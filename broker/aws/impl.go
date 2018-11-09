@@ -47,25 +47,47 @@ func (b *Broker) accountHumanNameFromName(accountName string) (string, error) {
 	return "", errors.New("accountNAme not found")
 }
 
-// Returns a aws static credentials and region name, returns nil if credentials cannot be found
-func (b *Broker) getCredentialsFromProfile(profileName string) (*credentials.Credentials, string, error) {
+func (b *Broker) loadCredentialsFile() error {
 	cfg, err := ini.Load(b.credentialsFilename)
 	if err != nil {
-		return nil, "", err
+		return err
 	}
-	accessKeyID := cfg.Section(profileName).Key("aws_access_key_id").String()
-	secretAccessKey := cfg.Section(profileName).Key("aws_secret_access_key").String()
-	b.logger.Debugf(1, "masterAccessKeyID=%s", accessKeyID)
-	if len(accessKeyID) < 3 || len(secretAccessKey) < 3 {
-		b.logger.Printf("No valid profile=%s", profileName)
-		return nil, "", nil
+	defaultRegion := "us-west-2"
+	sections := cfg.SectionStrings()
+	for _, profileName := range sections {
+		accessKeyID := cfg.Section(profileName).Key("aws_access_key_id").String()
+		secretAccessKey := cfg.Section(profileName).Key("aws_secret_access_key").String()
+		if len(accessKeyID) < 3 || len(secretAccessKey) < 3 {
+			continue
+		}
+		region := cfg.Section(profileName).Key("region").String()
+		if region == "" {
+			region = defaultRegion
+		}
+
+		entry := awsProfileEntry{AccessKeyID: accessKeyID,
+			SecretAccessKey: secretAccessKey,
+			Region:          region}
+
+		b.profileCredentials[profileName] = entry
+
 	}
-	region := cfg.Section(profileName).Key("region").String()
-	if region == "" {
-		region = "us-west-2"
+	if len(b.profileCredentials) < 1 {
+		return errors.New("nothing loaded")
 	}
-	sessionCredentials := credentials.NewStaticCredentials(accessKeyID, secretAccessKey, "")
-	return sessionCredentials, region, nil
+	//it is now unsealed
+	b.isUnsealedChannel <- nil
+	return nil
+}
+
+// Returns a aws static credentials and region name, returns nil if credentials cannot be found
+func (b *Broker) getCredentialsFromProfile(profileName string) (*credentials.Credentials, string, error) {
+	profileEntry, ok := b.profileCredentials[profileName]
+	if !ok {
+		return nil, "", errors.New("invalid credentials name")
+	}
+	sessionCredentials := credentials.NewStaticCredentials(profileEntry.AccessKeyID, profileEntry.SecretAccessKey, "")
+	return sessionCredentials, profileEntry.Region, nil
 }
 
 const profileAssumeRoleDurationSeconds = 3600
