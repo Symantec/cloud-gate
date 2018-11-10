@@ -81,6 +81,7 @@ func main() {
 	webServer.AddHtmlWriter(logger)
 
 	go func() {
+		logger.Debugf(1, "starting wait for unsealing")
 		//wait for all brokers to be unsealed
 		for _, broker := range brokers {
 			c, err := broker.GetIsUnsealedChannel()
@@ -92,6 +93,7 @@ func main() {
 				logger.Fatalf("broker unsealing error%s\n", err)
 			}
 		}
+		logger.Debugf(1, "Unsealing done, starting service port")
 		err = webServer.StartServicePort()
 		if err != nil {
 			logger.Fatalf("Unable to start Service Port: %s\n", err)

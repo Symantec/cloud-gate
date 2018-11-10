@@ -26,6 +26,7 @@ type Broker interface {
 	UserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error)
 	GetConsoleURLForAccountRole(accountName string, roleName string, username string, issuerURL string) (string, error)
 	GenerateTokenCredentials(accountName string, roleName string, username string) (*AWSCredentialsJSON, error)
+	ProcessNewUnsealingSecret(secret string) (ready bool, err error)
 	GetIsUnsealedChannel() (<-chan error, error)
 	LoadCredentialsFile() error
 }

@@ -40,6 +40,7 @@ type Broker struct {
 	accountRoleMutex            sync.Mutex
 	isUnsealedChannel           chan error
 	profileCredentials          map[string]awsProfileEntry
+	rawCredentialsFile          []byte
 }
 
 func New(userInfo userinfo.UserInfo,
@@ -80,6 +81,10 @@ func (b *Broker) GetConsoleURLForAccountRole(accountName string, roleName string
 
 func (b *Broker) GenerateTokenCredentials(accountName string, roleName string, userName string) (*broker.AWSCredentialsJSON, error) {
 	return b.generateTokenCredentials(accountName, roleName, userName)
+}
+
+func (b *Broker) ProcessNewUnsealingSecret(secret string) (ready bool, err error) {
+	return b.processNewUnsealingSecret(secret)
 }
 
 func (b *Broker) GetIsUnsealedChannel() (<-chan error, error) {

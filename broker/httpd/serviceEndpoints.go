@@ -227,5 +227,4 @@ func (s *Server) generateTokenHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	return
-
 }

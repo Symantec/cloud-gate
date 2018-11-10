@@ -50,6 +50,7 @@ type Server struct {
 	accessLogger log.DebugLogger
 	tlsConfig    *tls.Config
 	serviceMux   *http.ServeMux
+	isReady      bool
 }
 
 const secondsBetweenCleanup = 60
@@ -152,7 +153,11 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	}
 
 	/// Load the oter built in templates
-	extraTemplates := []string{footerTemplateText, consoleAccessTemplateText, generateTokaneTemplateText, headerTemplateText}
+	extraTemplates := []string{footerTemplateText,
+		consoleAccessTemplateText,
+		generateTokaneTemplateText,
+		unsealingFormPageTemplateText,
+		headerTemplateText}
 	for _, templateString := range extraTemplates {
 		_, err = server.htmlTemplate.Parse(templateString)
 		if err != nil {
@@ -162,6 +167,8 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 
 	http.HandleFunc("/", server.rootHandler)
 	http.HandleFunc("/status", server.statusHandler)
+	http.HandleFunc("/unseal", server.unsealingHandler)
+	http.HandleFunc(oauth2redirectPath, server.oauth2RedirectPathHandler)
 	http.Handle("/prometheus_metrics", promhttp.Handler())
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.mainEntryPointHandler)
@@ -239,6 +246,7 @@ func (s *Server) StartServicePort() error {
 	case serveErr := <-c1:
 		return serveErr
 	case <-time.After(500 * time.Millisecond): //500ms should be enough
+		s.isReady = true
 		return nil
 	}
 	return errors.New("Unepected behavior")

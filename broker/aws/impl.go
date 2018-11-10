@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
 
 	"github.com/Symantec/cloud-gate/broker"
 
@@ -47,8 +51,67 @@ func (b *Broker) accountHumanNameFromName(accountName string) (string, error) {
 	return "", errors.New("accountNAme not found")
 }
 
-func (b *Broker) loadCredentialsFile() error {
-	cfg, err := ini.Load(b.credentialsFilename)
+func (b *Broker) processNewUnsealingSecret(secret string) (ready bool, err error) {
+	// if already loaded then fast quit
+	//probably add some mutex here
+	if len(b.profileCredentials) > 0 {
+		return true, nil
+	}
+
+	decbuf := bytes.NewBuffer(b.rawCredentialsFile)
+
+	armorBlock, err := armor.Decode(decbuf)
+	if err != nil {
+		b.logger.Printf("Cannot decode armored file")
+		return false, err
+	}
+	password := []byte(secret)
+	failed := false
+	prompt := func(keys []openpgp.Key, symmetric bool) ([]byte, error) {
+		// If the given passphrase isn't correct, the function will be called again, forever.
+		// This method will fail fast.
+		// Ref: https://godoc.org/golang.org/x/crypto/openpgp#PromptFunction
+		if failed {
+			return nil, errors.New("decryption failed")
+		}
+		failed = true
+		return password, nil
+	}
+	md, err := openpgp.ReadMessage(armorBlock.Body, nil, prompt, nil)
+	if err != nil {
+		b.logger.Printf("cannot read message")
+		//state.writeFailureResponse(w, r, http.StatusBadRequest, "Invalid Unlocking key")
+		return false, err
+	}
+
+	plaintextBytes, err := ioutil.ReadAll(md.UnverifiedBody)
+	if err != nil {
+		return false, err
+	}
+
+	err = b.loadCredentialsFrombytes(plaintextBytes)
+	if err != nil {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (b *Broker) loadCredentialsFile() (err error) {
+	b.rawCredentialsFile, err = ioutil.ReadFile(b.credentialsFilename)
+	if err != nil {
+		return nil
+	}
+	fileAsString := string(b.rawCredentialsFile[:])
+	if strings.HasPrefix(fileAsString, "-----BEGIN PGP MESSAGE-----") {
+		//err = errors.New("Have a client CA but the CA file does NOT look like and PGP file")
+		return nil
+	}
+	return b.loadCredentialsFrombytes(b.rawCredentialsFile)
+}
+
+func (b *Broker) loadCredentialsFrombytes(credentials []byte) error {
+	cfg, err := ini.Load(credentials)
 	if err != nil {
 		return err
 	}
