@@ -11,7 +11,8 @@ import (
 	"net/url"
 	"os"
 	"testing"
-	//"time"
+	"time"
+
 	"github.com/Symantec/Dominator/lib/log/debuglogger"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
 	//"golang.org/x/net/context"
@@ -106,6 +107,39 @@ func TestGetRemoteUserNameHandler(t *testing.T) {
 	authCookie := http.Cookie{Name: authCookieName, Value: cookieVal}
 	uknownCookieReq.AddCookie(&authCookie)
 	_, err = checkRequestHandlerCode(uknownCookieReq, func(w http.ResponseWriter, r *http.Request) {
+		_, err := server.GetRemoteUserName(w, r)
+		if err == nil {
+			t.Fatal("GetRemoteUsername should have failed")
+		}
+	}, http.StatusFound)
+
+	//now succeed with known cookie
+	expires := time.Now().Add(time.Hour * cookieExpirationHours)
+	Cookieinfo := AuthCookie{"username", expires}
+	server.authCookie[cookieVal] = Cookieinfo
+	knownCookieReq, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	//authCookie := http.Cookie{Name: authCookieName, Value: cookieVal}
+	knownCookieReq.AddCookie(&authCookie)
+	_, err = checkRequestHandlerCode(knownCookieReq, func(w http.ResponseWriter, r *http.Request) {
+		_, err := server.GetRemoteUserName(w, r)
+		if err != nil {
+			t.Fatal("GetRemoteUsername should have failed")
+		}
+	}, http.StatusFound)
+
+	//now fail with expired cookie
+	expired := time.Now().Add(-1 * time.Hour * cookieExpirationHours)
+	Cookieinfo = AuthCookie{"username", expired}
+	server.authCookie[cookieVal] = Cookieinfo
+	expiredCookieReq, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expiredCookieReq.AddCookie(&authCookie)
+	_, err = checkRequestHandlerCode(expiredCookieReq, func(w http.ResponseWriter, r *http.Request) {
 		_, err := server.GetRemoteUserName(w, r)
 		if err == nil {
 			t.Fatal("GetRemoteUsername should have failed")
