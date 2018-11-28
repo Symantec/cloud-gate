@@ -1,4 +1,4 @@
-VERSION=0.4.0
+VERSION=0.4.1
 
 default:
 	go build
@@ -10,7 +10,7 @@ clean:
 sign: clean all
 	gpg -a --detach-sign cloud-gate.Linux
 	gpg -a --detach-sign cloud-gate.Darwin
-	gpg -a --detach-sign cloud-gate.win64
+	gpg -a --detach-sign cloud-gate.win64.exe
 
 all: linux darwin windows
 
@@ -21,4 +21,4 @@ darwin:
 	env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION}" -o cloud-gate.Darwin
 
 windows:
-	env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION}" -o cloud-gate.win64
+	env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION}" -o cloud-gate.win64.exe

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -30,14 +31,14 @@ var (
 )
 
 var (
-	certFilename         = flag.String("cert", filepath.Join(os.Getenv("HOME"), ".ssl", "keymaster.cert"), "A PEM eoncoded certificate file.")
-	keyFilename          = flag.String("key", filepath.Join(os.Getenv("HOME"), ".ssl", "keymaster.key"), "A PEM encoded private key file.")
+	certFilename         = flag.String("cert", filepath.Join(getUserHomeDir(), ".ssl", "keymaster.cert"), "A PEM eoncoded certificate file.")
+	keyFilename          = flag.String("key", filepath.Join(getUserHomeDir(), ".ssl", "keymaster.key"), "A PEM encoded private key file.")
 	baseURL              = flag.String("baseURL", "https://cloud-gate.symcpe.net", "location of the cloud-broker")
-	crededentialFilename = flag.String("credentialFile", filepath.Join(os.Getenv("HOME"), ".aws", "credentials"), "An Ini file with credentials")
+	crededentialFilename = flag.String("credentialFile", filepath.Join(getUserHomeDir(), ".aws", "credentials"), "An Ini file with credentials")
 	askAdminRoles        = flag.Bool("askAdminRoles", false, "ask also for admin roles")
 	outputProfilePrefix  = flag.String("outputProfilePrefix", "saml-", "prefix to put to profile names $PREFIX$accountName-$roleName")
 	lowerCaseProfileName = flag.Bool("lowerCaseProfileName", true, "ask also for admin roles")
-	configFilename       = flag.String("configFile", filepath.Join(os.Getenv("HOME"), ".config", "cloud-gate", "config.yml"), "An Ini file with credentials")
+	configFilename       = flag.String("configFile", filepath.Join(getUserHomeDir(), ".config", "cloud-gate", "config.yml"), "An Ini file with credentials")
 	oldBotoCompat        = flag.Bool("oldBotoCompat", false, "add aws_security_token for OLD boto installations (not recommended)")
 )
 
@@ -176,6 +177,7 @@ func getCerts(cert tls.Certificate, baseUrl string,
 
 	// Create file if it does not exist
 	if _, err := os.Stat(credentialFilename); os.IsNotExist(err) {
+		os.MkdirAll(filepath.Dir(credentialFilename), 0770)
 		file, err := os.OpenFile(credentialFilename, os.O_RDONLY|os.O_CREATE, 0660)
 		if err != nil {
 			return err
@@ -274,6 +276,20 @@ func getCertExpirationTime(certFilename string) (time.Time, error) {
 		return time.Now(), err
 	}
 	return cert.NotAfter, nil
+}
+
+func getUserHomeDir() (homeDir string) {
+	homeDir = os.Getenv("HOME")
+	if homeDir != "" {
+		return homeDir
+	}
+	usr, err := user.Current()
+	if err != nil {
+		return homeDir
+	}
+	// TODO: verify on Windows... see: http://stackoverflow.com/questions/7922270/obtain-users-home-directory
+	homeDir = usr.HomeDir
+	return
 }
 
 func Usage() {
