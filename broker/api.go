@@ -10,9 +10,16 @@ type PermittedAccount struct {
 	PermittedRoleName []string
 }
 
+type AWSCredentialsJSON struct {
+	SessionId    string `json:"sessionId"`
+	SessionKey   string `json:"sessionKey"`
+	SessionToken string `json:"sessionToken"`
+}
+
 type Broker interface {
 	UpdateConfiguration(config *configuration.Configuration) error
 	GetUserAllowedAccounts(username string) ([]PermittedAccount, error)
 	IsUserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error)
 	GetConsoleURLForAccountRole(accountName string, roleName string, username string) (string, error)
+	GenerateTokenCredentials(accountName string, roleName string, username string) (*AWSCredentialsJSON, error)
 }

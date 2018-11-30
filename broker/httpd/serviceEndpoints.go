@@ -1,9 +1,26 @@
 package httpd
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
 	"regexp"
+	"strings"
 )
+
+func (s *Server) getPreferredAcceptType(r *http.Request) string {
+	preferredAcceptType := "application/json"
+	acceptHeader, ok := r.Header["Accept"]
+	if ok {
+		for _, acceptValue := range acceptHeader {
+			if strings.Contains(acceptValue, "text/html") {
+				s.logger.Debugf(2, "Got it  %+v", acceptValue)
+				preferredAcceptType = "text/html"
+			}
+		}
+	}
+	return preferredAcceptType
+}
 
 func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
 	authUser, err := s.getRemoteUserName(w, r)
@@ -28,13 +45,57 @@ func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
 		AuthUsername:  authUser,
 		CloudAccounts: cloudAccounts,
 	}
-	err = s.htmlTemplate.ExecuteTemplate(w, "consoleAccessPage", displayData)
-	if err != nil {
-		s.logger.Printf("Failed to execute %v", err)
-		http.Error(w, "error", http.StatusInternalServerError)
-		return
+	returnAcceptType := s.getPreferredAcceptType(r)
+	switch returnAcceptType {
+	case "text/html":
+
+		err = s.htmlTemplate.ExecuteTemplate(w, "consoleAccessPage", displayData)
+		if err != nil {
+			s.logger.Printf("Failed to execute %v", err)
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+		}
+	default:
+		displayData.Title = ""
+		b, err := json.MarshalIndent(displayData, "", "  ")
+		if err != nil {
+			s.logger.Printf("Failed marshal %v", err)
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+
+		}
+		_, err = w.Write(b)
+		if err != nil {
+			s.logger.Printf("Incomplete write? %v", err)
+		}
 	}
 	return
+}
+
+// Assumes the form is alreadty parsed.
+func (s *Server) getVerifyFormValues(r *http.Request, formKey []string, retext string) (map[string][]string, error) {
+	var m map[string][]string
+	m = make(map[string][]string)
+
+	for _, key := range formKey {
+		valueArr, ok := r.Form[key]
+		if !ok {
+			return nil, errors.New("Missing required parameter")
+		}
+		for _, value := range valueArr {
+
+			ok, err := regexp.MatchString(retext, value)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, errors.New("Missing invalid parameter")
+			}
+		}
+		m[key] = valueArr
+	}
+
+	return m, nil
 }
 
 func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
@@ -55,30 +116,16 @@ func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error parsing form", http.StatusBadRequest)
 		return
 	}
-	accountNameArr, ok := r.Form["accountName"]
-	if !ok {
-		http.Error(w, "Missing required parameter accountName", http.StatusBadRequest)
+	validatedParams, err := s.getVerifyFormValues(r, []string{"accountName", "roleName"}, "^[A-Za-z0-9_.-]{2,40}$")
+	if err != nil {
+		s.logger.Println(err)
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
 		return
 	}
-	accountName := accountNameArr[0]
-	ok, err = regexp.MatchString("^[A-Za-z0-9_.-]{2,40}$", accountName)
-	if !ok {
-		http.Error(w, "badAccountName", http.StatusBadRequest)
-		return
-	}
-	roleNameArr, ok := r.Form["roleName"]
-	if !ok {
-		http.Error(w, "Missing required parameter roleName", http.StatusBadRequest)
-		return
-	}
-	roleName := roleNameArr[0]
-	ok, err = regexp.MatchString("^[A-Za-z0-9_.-]{2,40}$", roleName)
-	if !ok {
-		http.Error(w, "badRoleName", http.StatusBadRequest)
-		return
-	}
+	accountName := validatedParams["accountName"][0]
+	roleName := validatedParams["roleName"][0]
 
-	ok, err = s.brokers["aws"].IsUserAllowedToAssumeRole(authUser, accountName, roleName)
+	ok, err := s.brokers["aws"].IsUserAllowedToAssumeRole(authUser, accountName, roleName)
 	if !ok {
 		http.Error(w, "Invalid account or Role", http.StatusForbidden)
 		return
@@ -92,4 +139,52 @@ func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, destUrl, 302)
 	return
+}
+
+func (s *Server) generateTokenHandler(w http.ResponseWriter, r *http.Request) {
+	authUser, err := s.getRemoteUserName(w, r)
+	if err != nil {
+		return
+	}
+	// TODO: check for valid method
+	err = r.ParseForm()
+	if err != nil {
+		s.logger.Println(err)
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		return
+	}
+	validatedParams, err := s.getVerifyFormValues(r, []string{"accountName", "roleName"}, "^[A-Za-z0-9_.-]{2,40}$")
+	if err != nil {
+		s.logger.Println(err)
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		return
+	}
+	accountName := validatedParams["accountName"][0]
+	roleName := validatedParams["roleName"][0]
+
+	ok, err := s.brokers["aws"].IsUserAllowedToAssumeRole(authUser, accountName, roleName)
+	if !ok {
+		http.Error(w, "Invalid account or Role", http.StatusForbidden)
+		return
+	}
+	tempCredentials, err := s.brokers["aws"].GenerateTokenCredentials(accountName, roleName, authUser)
+	if err != nil {
+		s.logger.Printf("Failed to get token %v", err)
+		http.Error(w, "error", http.StatusInternalServerError)
+		return
+
+	}
+	b, err := json.MarshalIndent(tempCredentials, "", "  ")
+	if err != nil {
+		s.logger.Printf("Failed marshal %v", err)
+		http.Error(w, "error", http.StatusInternalServerError)
+		return
+
+	}
+	_, err = w.Write(b)
+	if err != nil {
+		s.logger.Printf("Incomplete write? %v", err)
+	}
+	return
+
 }
