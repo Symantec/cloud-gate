@@ -2,6 +2,7 @@ package aws
 
 import (
 	"errors"
+	"time"
 
 	"github.com/Symantec/Dominator/lib/log"
 	"github.com/Symantec/cloud-gate/broker"
@@ -9,11 +10,17 @@ import (
 	"github.com/Symantec/cloud-gate/lib/userinfo"
 )
 
+type userAllowedCredentialsCacheEntry struct {
+	PermittedAccounts []broker.PermittedAccount
+	Expiration        time.Time
+}
+
 type Broker struct {
-	config              *configuration.Configuration
-	userInfo            userinfo.UserInfo
-	credentialsFilename string
-	logger              log.DebugLogger
+	config                      *configuration.Configuration
+	userInfo                    userinfo.UserInfo
+	credentialsFilename         string
+	logger                      log.DebugLogger
+	userAllowedCredentialsCache map[string]userAllowedCredentialsCacheEntry
 }
 
 func New(userInfo userinfo.UserInfo,
@@ -21,7 +28,9 @@ func New(userInfo userinfo.UserInfo,
 	logger log.DebugLogger) *Broker {
 	return &Broker{userInfo: userInfo,
 		credentialsFilename: credentialsFilename,
-		logger:              logger}
+		logger:              logger,
+		userAllowedCredentialsCache: make(map[string]userAllowedCredentialsCacheEntry),
+	}
 }
 
 func (b *Broker) UpdateConfiguration(
