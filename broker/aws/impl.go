@@ -84,8 +84,7 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 
 	b.logger.Debugf(2, "stsClient=%v", stsClient)
 
-	var durationSeconds int64
-	durationSeconds = 3600
+	durationSeconds := int64(3600)
 	accountID, err := b.accountIDFromName(accountName)
 	if err != nil {
 		return nil, err
