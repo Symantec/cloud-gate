@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Symantec/cloud-gate/broker"
 
@@ -83,8 +84,7 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 
 	b.logger.Debugf(2, "stsClient=%v", stsClient)
 
-	var durationSeconds int64
-	durationSeconds = 1800
+	durationSeconds := int64(3600)
 	accountID, err := b.accountIDFromName(accountName)
 	if err != nil {
 		return nil, err
@@ -241,7 +241,7 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 	return permittedAccounts, nil
 }
 
-func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAccount, error) {
+func (b *Broker) getUserAllowedAccountsNonCached(username string) ([]broker.PermittedAccount, error) {
 	if b.config == nil {
 		return nil, errors.New("nil config")
 	}
@@ -253,6 +253,37 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	b.logger.Debugf(1, "UserGroups for '%s' =%+v", username, userGroups)
 
 	return b.getUserAllowedAccountsFromGroups(userGroups)
+}
+
+const cacheDuration = time.Second * 300
+
+func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAccount, error) {
+	//TODO MUTEX!
+	cachedEntry, ok := b.userAllowedCredentialsCache[username]
+	if ok {
+		if cachedEntry.Expiration.After(time.Now()) {
+			b.logger.Debugf(1, "GOT authz from cache")
+			return cachedEntry.PermittedAccounts, nil
+		}
+		// entry is expired
+		value, err := b.getUserAllowedAccountsNonCached(username)
+		if err != nil {
+			b.logger.Printf("Failure gettting non-cached, using expired cache")
+			return cachedEntry.PermittedAccounts, nil
+		}
+		cachedEntry.PermittedAccounts = value
+		cachedEntry.Expiration = time.Now().Add(cacheDuration)
+		b.userAllowedCredentialsCache[username] = cachedEntry
+		return value, nil
+	}
+	value, err := b.getUserAllowedAccountsNonCached(username)
+	if err != nil {
+		return value, err
+	}
+	cachedEntry.PermittedAccounts = value
+	cachedEntry.Expiration = time.Now().Add(cacheDuration)
+	b.userAllowedCredentialsCache[username] = cachedEntry
+	return value, nil
 }
 
 func (b *Broker) isUserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
