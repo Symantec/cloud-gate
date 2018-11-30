@@ -108,6 +108,7 @@ func saveDefaultConfig(configFilename string) error {
 
 const badReturnErrText = "bad return code"
 const sleepDuration = 1800 * time.Second
+const failureSleepDuration = 60 * time.Second
 
 func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName string,
 	cfg *ini.File, outputProfilePrefix string,
@@ -323,11 +324,13 @@ func main() {
 		err = getCerts(cert, *baseURL, *crededentialFilename,
 			*askAdminRoles, *outputProfilePrefix, *lowerCaseProfileName)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("err=%s", err)
+			log.Printf("Failure getting certs, retrying in (%s)", failureSleepDuration)
+			time.Sleep(failureSleepDuration)
+		} else {
+			log.Printf("Credentials Successfully generated sleeping for (%s)", sleepDuration)
+			time.Sleep(sleepDuration)
 		}
-		log.Printf("Credentials Successfully generated sleeping for (%s)", sleepDuration)
-
-		time.Sleep(sleepDuration)
 		certNotAfter, err = getCertExpirationTime(*certFilename)
 		if err != nil {
 			log.Fatal(err)
