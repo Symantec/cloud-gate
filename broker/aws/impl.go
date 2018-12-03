@@ -176,9 +176,9 @@ func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
 		// Entry has expired
 		value, err := b.getAWSRolesForAccountNonCached(accountName)
 		if err != nil {
-			// For availability reasons, we prefer to allos users to
-			// continue using the cloudgate-server on expired aws data
-			// This allow us to continue to operate on transient aws
+			// For availability reasons, we prefer to allow users to
+			// continue using the cloudgate-server on expired AWS data
+			// This allow us to continue to operate on transient AWS
 			// errors.
 			b.logger.Printf("Failure gettting non-cached roles, using expired cache")
 			return cachedEntry.Roles, nil
@@ -203,9 +203,7 @@ func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
 }
 
 func stringIntersectionNoDups(set1, set2 []string) (intersection []string) {
-	var stringMap map[string]string
-	stringMap = make(map[string]string)
-
+	stringMap := make(map[string]string, len(set1))
 	for _, v1 := range set1 {
 		stringMap[strings.ToLower(v1)] = v1
 	}

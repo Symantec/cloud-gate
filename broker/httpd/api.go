@@ -69,7 +69,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 
 	// load templates
 	server.htmlTemplate = template.New("main")
-	// Load the oter built in templates
+	// Load the other built in templates
 	extraTemplates := []string{footerTemplateText, consoleAccessTemplateText, generateTokaneTemplateText, headerTemplateText}
 	for _, templateString := range extraTemplates {
 		_, err = server.htmlTemplate.Parse(templateString)
