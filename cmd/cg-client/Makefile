@@ -1,4 +1,8 @@
 VERSION=0.4.1
+ifeq ($(DEFAULT_BASE_URL),)
+#TEST := $(something else)
+DEFAULT_BASE_URL:="https://cloud-gate.example.net"
+endif
 
 default:
 	go build
@@ -15,10 +19,10 @@ sign: clean all
 all: linux darwin windows
 
 linux:
-	env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION}" -o cloud-gate.Linux
+	env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION} -X main.DefaultBaseURL=${DEFAULT_BASE_URL}" -o cloud-gate.Linux
 
 darwin:
-	env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION}" -o cloud-gate.Darwin
+	env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION} -X main.DefaultBaseURL=${DEFAULT_BASE_URL}" -o cloud-gate.Darwin
 
 windows:
-	env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION}" -o cloud-gate.win64.exe
+	env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION} -X main.DefaultBaseURL=${DEFAULT_BASE_URL}" -o cloud-gate.win64.exe

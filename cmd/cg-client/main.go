@@ -27,16 +27,19 @@ var (
 	// Must be a global variable in the data segment so that the build
 	// process can inject the version number on the fly when building the
 	// binary. Use only from the Usage() function.
-	Version = "No version provided"
+	Version        = "No version provided"
+	DefaultBaseURL = "https://cloud-gate.example.com"
 )
+
+const DefaultOutputProfilePrefix = "saml-"
 
 var (
 	certFilename         = flag.String("cert", filepath.Join(getUserHomeDir(), ".ssl", "keymaster.cert"), "A PEM eoncoded certificate file.")
 	keyFilename          = flag.String("key", filepath.Join(getUserHomeDir(), ".ssl", "keymaster.key"), "A PEM encoded private key file.")
-	baseURL              = flag.String("baseURL", "https://cloud-gate.symcpe.net", "location of the cloud-broker")
+	baseURL              = flag.String("baseURL", "", "location of the cloud-broker")
 	crededentialFilename = flag.String("credentialFile", filepath.Join(getUserHomeDir(), ".aws", "credentials"), "An Ini file with credentials")
 	askAdminRoles        = flag.Bool("askAdminRoles", false, "ask also for admin roles")
-	outputProfilePrefix  = flag.String("outputProfilePrefix", "saml-", "prefix to put to profile names $PREFIX$accountName-$roleName")
+	outputProfilePrefix  = flag.String("outputProfilePrefix", DefaultOutputProfilePrefix, "prefix to put to profile names $PREFIX$accountName-$roleName")
 	lowerCaseProfileName = flag.Bool("lowerCaseProfileName", true, "ask also for admin roles")
 	configFilename       = flag.String("configFile", filepath.Join(getUserHomeDir(), ".config", "cloud-gate", "config.yml"), "An Ini file with credentials")
 	oldBotoCompat        = flag.Bool("oldBotoCompat", false, "add aws_security_token for OLD boto installations (not recommended)")
@@ -69,8 +72,10 @@ type AWSCredentialsJSON struct {
 func loadVerifyConfigFile(configFilename string) (AppConfigFile, error) {
 	var config AppConfigFile
 	if _, err := os.Stat(configFilename); os.IsNotExist(err) {
-		err = errors.New("No config file: please re-run with -configHost")
-		return config, err
+		err = saveDefaultConfig(configFilename)
+		if err != nil {
+			return config, err
+		}
 	}
 	source, err := ioutil.ReadFile(configFilename)
 	if err != nil {
@@ -94,8 +99,8 @@ func loadVerifyConfigFile(configFilename string) (AppConfigFile, error) {
 func saveDefaultConfig(configFilename string) error {
 	os.MkdirAll(filepath.Dir(configFilename), 0770)
 	config := AppConfigFile{
-		BaseURL:              "https://cloud-gate.symcpe.net",
-		OutputProfilePrefix:  "saml-",
+		BaseURL:              DefaultBaseURL,
+		OutputProfilePrefix:  DefaultOutputProfilePrefix,
 		LowerCaseProfileName: true,
 	}
 	configBytes, err := yaml.Marshal(config)
@@ -303,11 +308,18 @@ func main() {
 	flag.Usage = Usage
 	flag.Parse()
 
-	err := saveDefaultConfig(*configFilename)
+	config, err := loadVerifyConfigFile(*configFilename)
 	if err != nil {
 		log.Fatal(err)
 	}
+	if *outputProfilePrefix != DefaultOutputProfilePrefix {
+		config.OutputProfilePrefix = *outputProfilePrefix
+	}
+	if *baseURL != "" {
+		config.BaseURL = *baseURL
+	}
 
+	log.Printf("Configuration Loaded")
 	certNotAfter, err := getCertExpirationTime(*certFilename)
 	if err != nil {
 		log.Fatal(err)
@@ -321,8 +333,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = getCerts(cert, *baseURL, *crededentialFilename,
-			*askAdminRoles, *outputProfilePrefix, *lowerCaseProfileName)
+		err = getCerts(cert, config.BaseURL, *crededentialFilename,
+			*askAdminRoles, config.OutputProfilePrefix, *lowerCaseProfileName)
 		if err != nil {
 			log.Printf("err=%s", err)
 			log.Printf("Failure getting certs, retrying in (%s)", failureSleepDuration)
