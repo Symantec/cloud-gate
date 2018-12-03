@@ -57,11 +57,10 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func setupSecurityHeaders(w http.ResponseWriter) error {
-	//all common security headers go here
+	// All common security headers go here
 	w.Header().Set("Strict-Transport-Security", "max-age=31536")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-XSS-Protection", "1")
-	//w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self' code.jquery.com; connect-src 'self'; img-src 'self'; style-src 'self';")
 	w.Header().Set("Content-Security-Policy", "default-src 'self' ;style-src 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com fonts.googleapis.com")
 
 	return nil
@@ -76,7 +75,7 @@ func (s *Server) getRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 		}
 	}
 
-	_ = setupSecurityHeaders(w)
+	setupSecurityHeaders(w)
 
 	remoteCookie, err := r.Cookie(constants.AuthCookieName)
 	if err != nil {

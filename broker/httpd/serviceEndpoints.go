@@ -211,19 +211,16 @@ func (s *Server) generateTokenHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-
 		b, err := json.MarshalIndent(tempCredentials, "", "  ")
 		if err != nil {
 			s.logger.Printf("Failed marshal %v", err)
 			http.Error(w, "error", http.StatusInternalServerError)
 			return
-
 		}
 		_, err = w.Write(b)
 		if err != nil {
-			s.logger.Printf("Incomplete write? %v", err)
+			s.logger.Printf("Write Error: %v", err)
 		}
 	}
 	return
-
 }

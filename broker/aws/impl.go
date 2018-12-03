@@ -169,13 +169,17 @@ func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
 	if ok {
 
 		if cachedEntry.Expiration.After(time.Now()) {
-			b.logger.Debugf(1, "GOT rolesfrom cache")
+			b.logger.Debugf(1, "Got roles from cache")
 			return cachedEntry.Roles, nil
 		}
 
-		// entry is expired
+		// Entry has expired
 		value, err := b.getAWSRolesForAccountNonCached(accountName)
 		if err != nil {
+			// For availability reasons, we prefer to allos users to
+			// continue using the cloudgate-server on expired aws data
+			// This allow us to continue to operate on transient aws
+			// errors.
 			b.logger.Printf("Failure gettting non-cached roles, using expired cache")
 			return cachedEntry.Roles, nil
 		}
@@ -301,7 +305,7 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	b.userAllowedCredentialsMutex.Unlock()
 	if ok {
 		if cachedEntry.Expiration.After(time.Now()) {
-			b.logger.Debugf(1, "GOT authz from cache")
+			b.logger.Debugf(1, "Got authz from cache")
 			return cachedEntry.PermittedAccounts, nil
 		}
 		// entry is expired
