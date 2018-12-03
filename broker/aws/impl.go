@@ -203,11 +203,16 @@ func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
 }
 
 func stringIntersectionNoDups(set1, set2 []string) (intersection []string) {
+	var stringMap map[string]string
+	stringMap = make(map[string]string)
+
 	for _, v1 := range set1 {
-		for _, v2 := range set2 {
-			if strings.ToLower(v1) == strings.ToLower(v2) {
-				intersection = append(intersection, v1)
-			}
+		stringMap[strings.ToLower(v1)] = v1
+	}
+	for _, v2 := range set2 {
+		v1, ok := stringMap[strings.ToLower(v2)]
+		if ok {
+			intersection = append(intersection, v1)
 		}
 	}
 	return intersection
