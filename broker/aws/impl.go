@@ -126,7 +126,7 @@ func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, erro
 		b.logger.Printf("cannot assume role for account %s, err=%s", accountName, err)
 		return nil, err
 	}
-	b.logger.Printf("assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
+	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
 
 	//TODO check region from account config
 	region := "us-east-1"
@@ -137,7 +137,7 @@ func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, erro
 	return b.withSessionGetAWSRoleList(assumedSession)
 }
 
-func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
+func (b *Broker) getAWSRolesForAccountNonCached(accountName string) ([]string, error) {
 	b.logger.Debugf(1, "top of getAWSRolesForAccount for account =%s", accountName)
 	accountRoles, err := b.masterGetAWSRolesForAccount(accountName)
 	if err == nil {
@@ -160,12 +160,57 @@ func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
 	return b.withSessionGetAWSRoleList(accountSession)
 }
 
+const roleCacheDuration = time.Second * 1800
+
+func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
+	b.accountRoleMutex.Lock()
+	cachedEntry, ok := b.accountRoleCache[accountName]
+	b.accountRoleMutex.Unlock()
+	if ok {
+
+		if cachedEntry.Expiration.After(time.Now()) {
+			b.logger.Debugf(1, "Got roles from cache")
+			return cachedEntry.Roles, nil
+		}
+
+		// Entry has expired
+		value, err := b.getAWSRolesForAccountNonCached(accountName)
+		if err != nil {
+			// For availability reasons, we prefer to allow users to
+			// continue using the cloudgate-server on expired AWS data
+			// This allow us to continue to operate on transient AWS
+			// errors.
+			b.logger.Printf("Failure gettting non-cached roles, using expired cache")
+			return cachedEntry.Roles, nil
+		}
+		cachedEntry.Roles = value
+		cachedEntry.Expiration = time.Now().Add(roleCacheDuration)
+		b.accountRoleMutex.Lock()
+		b.accountRoleCache[accountName] = cachedEntry
+		b.accountRoleMutex.Unlock()
+		return value, nil
+	}
+	value, err := b.getAWSRolesForAccountNonCached(accountName)
+	if err != nil {
+		return value, err
+	}
+	cachedEntry.Roles = value
+	cachedEntry.Expiration = time.Now().Add(roleCacheDuration)
+	b.accountRoleMutex.Lock()
+	b.accountRoleCache[accountName] = cachedEntry
+	b.accountRoleMutex.Unlock()
+	return value, nil
+}
+
 func stringIntersectionNoDups(set1, set2 []string) (intersection []string) {
+	stringMap := make(map[string]string, len(set1))
 	for _, v1 := range set1 {
-		for _, v2 := range set2 {
-			if v1 == v2 {
-				intersection = append(intersection, v1)
-			}
+		stringMap[strings.ToLower(v1)] = v1
+	}
+	for _, v2 := range set2 {
+		v1, ok := stringMap[strings.ToLower(v2)]
+		if ok {
+			intersection = append(intersection, v1)
 		}
 	}
 	return intersection
@@ -258,11 +303,12 @@ func (b *Broker) getUserAllowedAccountsNonCached(username string) ([]broker.Perm
 const cacheDuration = time.Second * 300
 
 func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAccount, error) {
-	//TODO MUTEX!
+	b.userAllowedCredentialsMutex.Lock()
 	cachedEntry, ok := b.userAllowedCredentialsCache[username]
+	b.userAllowedCredentialsMutex.Unlock()
 	if ok {
 		if cachedEntry.Expiration.After(time.Now()) {
-			b.logger.Debugf(1, "GOT authz from cache")
+			b.logger.Debugf(1, "Got authz from cache")
 			return cachedEntry.PermittedAccounts, nil
 		}
 		// entry is expired
@@ -273,7 +319,9 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 		}
 		cachedEntry.PermittedAccounts = value
 		cachedEntry.Expiration = time.Now().Add(cacheDuration)
+		b.userAllowedCredentialsMutex.Lock()
 		b.userAllowedCredentialsCache[username] = cachedEntry
+		b.userAllowedCredentialsMutex.Unlock()
 		return value, nil
 	}
 	value, err := b.getUserAllowedAccountsNonCached(username)
@@ -282,7 +330,9 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	}
 	cachedEntry.PermittedAccounts = value
 	cachedEntry.Expiration = time.Now().Add(cacheDuration)
+	b.userAllowedCredentialsMutex.Lock()
 	b.userAllowedCredentialsCache[username] = cachedEntry
+	b.userAllowedCredentialsMutex.Unlock()
 	return value, nil
 }
 
@@ -326,7 +376,7 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 			return "", err
 		}
 	}
-	b.logger.Printf("assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
+	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
 
 	sessionCredentials := ExchangeCredentialsJSON{
 		SessionId:    *assumeRoleOutput.Credentials.AccessKeyId,
@@ -395,7 +445,7 @@ func (b *Broker) generateTokenCredentials(accountName string, roleName string, u
 			return nil, err
 		}
 	}
-	b.logger.Printf("assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
+	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
 	outVal := broker.AWSCredentialsJSON{
 		SessionId:    *assumeRoleOutput.Credentials.AccessKeyId,
 		SessionKey:   *assumeRoleOutput.Credentials.SecretAccessKey,

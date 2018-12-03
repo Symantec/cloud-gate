@@ -11,6 +11,7 @@ type consolePageTemplateData struct {
 	JSSources     []string `json:",omitempty"`
 	ErrorMessage  string   `json:",omitempty"`
 	CloudAccounts map[string]cloudAccountInfo
+	TokenConsole  bool
 }
 
 //Should be a template
@@ -29,10 +30,15 @@ const consoleAccessTemplateText = `
     <div style="min-height:100%;position:relative;">
     {{template "header" .}}
         <div style="padding-bottom:60px; margin:1em auto; max-width:80em; padding-left:20px ">
-        <h2> AWS Console Access </h2>
+        <h2> {{if .TokenConsole}} AWS Token Access {{else}}AWS Console Access {{end}} </h2>
         {{if .ErrorMessage}}
         <p style="color:red;">{{.ErrorMessage}} </p>
         {{end}}
+        <p>
+	Go to:  {{if .TokenConsole}} <a href="/">Web Console</a> {{else}} <a href="/?mode=genToken">Token Console <a> {{end}} 
+	</p>
+
+        {{with $top := . }}
 	<div id="accounts">
           <table>
 	     <tr>
@@ -41,7 +47,7 @@ const consoleAccessTemplateText = `
 	     </tr>
 	   {{range $key, $value := .CloudAccounts}}
 	     <tr>
-	        <form action="/getconsole">
+	     <form action={{if $top.TokenConsole}}"/generatetoken"{{else}}"/getconsole"{{end}}>
 		<input type="hidden" name="accountName" value="{{$value.Name}}">
 	        <td>{{$key}}
 		</td>
@@ -53,7 +59,58 @@ const consoleAccessTemplateText = `
 		</form>
 	     </tr>
 	   {{end}}
+	   {{end}}
 	  </table>
+	</div>
+        </div>
+    {{template "footer" . }}
+    </div>
+    </body>
+</html>
+{{end}}
+`
+
+type generateTokenPageTemplateData struct {
+	Title        string `json:",omitempty"`
+	AuthUsername string
+	JSSources    []string `json:",omitempty"`
+	ErrorMessage string   `json:",omitempty"`
+	AccountName  string
+	RoleName     string
+	SessionId    string `json:"sessionId"`
+	SessionKey   string `json:"sessionKey"`
+	SessionToken string `json:"sessionToken"`
+	Region       string `json:"region,omitempty"`
+}
+
+const generateTokaneTemplateText = `
+{{define "generateTokenPagePage"}}
+<!DOCTYPE html>
+<html style="height:100%; padding:0;border:0;margin:0">
+    <head>
+        <meta charset="UTF-8">
+        <title>{{.Title}}</title>
+        <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Droid+Sans" />
+        <link rel="stylesheet" type="text/css" href="/static/customization.css">
+        <link rel="stylesheet" type="text/css" href="/static/common.css">
+    </head>
+    <body>
+    <div style="min-height:100%;position:relative;">
+    {{template "header" .}}
+        <div style="padding-bottom:60px; margin:1em auto; max-width:80em; padding-left:20px ">
+        <h2> Token Output </h2>
+        {{if .ErrorMessage}}
+        <p style="color:red;">{{.ErrorMessage}} </p>
+        {{end}}
+        <p>
+	<div>
+	<code style="white-space: nowrap">
+	[{{.AccountName}}-{{.RoleName}}] <br>
+	{{if .Region}}<p>region = {{.Region}}<br>{{end}}
+	aws_access_key_id = {{.SessionId}}<br>
+        aws_secret_access_key= {{.SessionKey}}<br>
+	aws_session_token = {{.SessionToken}}<br>
+	</code>
 	</div>
         </div>
     {{template "footer" . }}

@@ -2,6 +2,7 @@ package aws
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/Symantec/Dominator/lib/log"
@@ -15,12 +16,20 @@ type userAllowedCredentialsCacheEntry struct {
 	Expiration        time.Time
 }
 
+type accountRoleCacheEntry struct {
+	Roles      []string
+	Expiration time.Time
+}
+
 type Broker struct {
 	config                      *configuration.Configuration
 	userInfo                    userinfo.UserInfo
 	credentialsFilename         string
 	logger                      log.DebugLogger
 	userAllowedCredentialsCache map[string]userAllowedCredentialsCacheEntry
+	userAllowedCredentialsMutex sync.Mutex
+	accountRoleCache            map[string]accountRoleCacheEntry
+	accountRoleMutex            sync.Mutex
 }
 
 func New(userInfo userinfo.UserInfo,
@@ -30,6 +39,7 @@ func New(userInfo userinfo.UserInfo,
 		credentialsFilename: credentialsFilename,
 		logger:              logger,
 		userAllowedCredentialsCache: make(map[string]userAllowedCredentialsCacheEntry),
+		accountRoleCache:            make(map[string]accountRoleCacheEntry),
 	}
 }
 

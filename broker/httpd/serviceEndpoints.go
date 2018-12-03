@@ -27,6 +27,19 @@ func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+
+	err = r.ParseForm()
+	if err != nil {
+		s.logger.Println(err)
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		return
+	}
+	mode := "webConsole"
+	valueArr, ok := r.Form["mode"]
+	if ok {
+		mode = valueArr[0]
+	}
+
 	userAccounts, err := s.brokers["aws"].GetUserAllowedAccounts(authUser)
 	if err != nil {
 		s.logger.Printf("Failed to get aws accounts for %s, err=%v", authUser, err)
@@ -45,10 +58,14 @@ func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
 		AuthUsername:  authUser,
 		CloudAccounts: cloudAccounts,
 	}
+	if mode == "genToken" {
+		displayData.TokenConsole = true
+	}
 	returnAcceptType := s.getPreferredAcceptType(r)
 	switch returnAcceptType {
 	case "text/html":
 
+		w.Header().Set("Cache-Control", "private, max-age=30")
 		err = s.htmlTemplate.ExecuteTemplate(w, "consoleAccessPage", displayData)
 		if err != nil {
 			s.logger.Printf("Failed to execute %v", err)
@@ -172,17 +189,38 @@ func (s *Server) generateTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
-	b, err := json.MarshalIndent(tempCredentials, "", "  ")
-	if err != nil {
-		s.logger.Printf("Failed marshal %v", err)
-		http.Error(w, "error", http.StatusInternalServerError)
-		return
 
-	}
-	_, err = w.Write(b)
-	if err != nil {
-		s.logger.Printf("Incomplete write? %v", err)
+	returnAcceptType := s.getPreferredAcceptType(r)
+	switch returnAcceptType {
+	case "text/html":
+		displayData := generateTokenPageTemplateData{
+			Title:        "Cloud-Gate credential output",
+			AuthUsername: authUser,
+			AccountName:  accountName,
+			RoleName:     roleName,
+			SessionId:    tempCredentials.SessionId,
+			SessionKey:   tempCredentials.SessionKey,
+			SessionToken: tempCredentials.SessionToken,
+			Region:       tempCredentials.Region,
+		}
+
+		err = s.htmlTemplate.ExecuteTemplate(w, "generateTokenPagePage", displayData)
+		if err != nil {
+			s.logger.Printf("Failed to execute %v", err)
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+		}
+	default:
+		b, err := json.MarshalIndent(tempCredentials, "", "  ")
+		if err != nil {
+			s.logger.Printf("Failed marshal %v", err)
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+		}
+		_, err = w.Write(b)
+		if err != nil {
+			s.logger.Printf("Write Error: %v", err)
+		}
 	}
 	return
-
 }
