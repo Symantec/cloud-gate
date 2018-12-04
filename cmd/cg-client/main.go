@@ -31,7 +31,7 @@ var (
 	DefaultBaseURL = "https://cloud-gate.example.com"
 )
 
-const DefaultOutputProfilePrefix = "saml-"
+const defaultOutputProfilePrefix = "saml-"
 
 var (
 	certFilename         = flag.String("cert", filepath.Join(getUserHomeDir(), ".ssl", "keymaster.cert"), "A PEM eoncoded certificate file.")
@@ -39,7 +39,7 @@ var (
 	baseURL              = flag.String("baseURL", "", "location of the cloud-broker")
 	crededentialFilename = flag.String("credentialFile", filepath.Join(getUserHomeDir(), ".aws", "credentials"), "An Ini file with credentials")
 	askAdminRoles        = flag.Bool("askAdminRoles", false, "ask also for admin roles")
-	outputProfilePrefix  = flag.String("outputProfilePrefix", DefaultOutputProfilePrefix, "prefix to put to profile names $PREFIX$accountName-$roleName")
+	outputProfilePrefix  = flag.String("outputProfilePrefix", defaultOutputProfilePrefix, "prefix to put to profile names $PREFIX$accountName-$roleName")
 	lowerCaseProfileName = flag.Bool("lowerCaseProfileName", true, "ask also for admin roles")
 	configFilename       = flag.String("configFile", filepath.Join(getUserHomeDir(), ".config", "cloud-gate", "config.yml"), "An Ini file with credentials")
 	oldBotoCompat        = flag.Bool("oldBotoCompat", false, "add aws_security_token for OLD boto installations (not recommended)")
@@ -97,17 +97,17 @@ func loadVerifyConfigFile(configFilename string) (AppConfigFile, error) {
 }
 
 func saveDefaultConfig(configFilename string) error {
-	os.MkdirAll(filepath.Dir(configFilename), 0770)
+	os.MkdirAll(filepath.Dir(configFilename), 0750)
 	config := AppConfigFile{
 		BaseURL:              DefaultBaseURL,
-		OutputProfilePrefix:  DefaultOutputProfilePrefix,
+		OutputProfilePrefix:  defaultOutputProfilePrefix,
 		LowerCaseProfileName: true,
 	}
 	configBytes, err := yaml.Marshal(config)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(configFilename, configBytes, 0644)
+	return ioutil.WriteFile(configFilename, configBytes, 0640)
 
 }
 
@@ -115,7 +115,7 @@ const badReturnErrText = "bad return code"
 const sleepDuration = 1800 * time.Second
 const failureSleepDuration = 60 * time.Second
 
-func getAndUptateCreds(client *http.Client, baseUrl, accountName, roleName string,
+func getAndUpdateCreds(client *http.Client, baseUrl, accountName, roleName string,
 	cfg *ini.File, outputProfilePrefix string,
 	lowerCaseProfileName bool) error {
 	log.Printf("account=%s, role=%s", accountName, roleName)
@@ -169,33 +169,29 @@ func getParseURLEnvVariable(name string) (*url.URL, error) {
 	if len(envVariable) < 1 {
 		return nil, nil
 	}
-	envUrl, err := url.Parse(envVariable)
+	envURL, err := url.Parse(envVariable)
 	if err != nil {
 		return nil, err
 	}
 
-	return envUrl, nil
+	return envURL, nil
 }
 
-func getCerts(cert tls.Certificate, baseUrl string,
-	credentialFilename string, askAdminRoles bool,
-	outputProfilePrefix string, lowerCaseProfileName bool) error {
-
+func setupCredentialFile(credentialFilename string) (*ini.File, error) {
 	// Create file if it does not exist
 	if _, err := os.Stat(credentialFilename); os.IsNotExist(err) {
 		os.MkdirAll(filepath.Dir(credentialFilename), 0770)
 		file, err := os.OpenFile(credentialFilename, os.O_RDONLY|os.O_CREATE, 0660)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		file.Close()
 	}
 
-	credFile, err := ini.Load(credentialFilename)
-	if err != nil {
-		return err
-	}
+	return ini.Load(credentialFilename)
+}
 
+func setupHttpClient(cert tls.Certificate) (*http.Client, error) {
 	// Setup HTTPS client
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
@@ -212,17 +208,19 @@ func getCerts(cert tls.Certificate, baseUrl string,
 			transport.Proxy = http.ProxyURL(httpProxy)
 		}
 	}
-
 	client := &http.Client{Transport: transport, Timeout: 10 * time.Second}
+	return client, nil
+}
 
+func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, error) {
 	// Do GET something
 	resp, err := client.Get(baseUrl)
 	if err != nil {
-		log.Printf("failed to connect err=%s transport=%+v ", err, transport)
+		log.Printf("failed to connect err=%s transport=%+v ", err, client.Transport)
 		if resp != nil {
 			log.Printf("resp=+%v", resp)
 		}
-		log.Fatal(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -231,14 +229,33 @@ func getCerts(cert tls.Certificate, baseUrl string,
 	if err != nil {
 		log.Fatal(err)
 	}
-	//log.Println(string(data))
-
 	var accountList getAccountInfo
 	err = json.Unmarshal(data, &accountList)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("%+v", accountList)
+	return &accountList, nil
+
+}
+
+func getCerts(cert tls.Certificate, baseUrl string,
+	credentialFilename string, askAdminRoles bool,
+	outputProfilePrefix string, lowerCaseProfileName bool) error {
+
+	credFile, err := setupCredentialFile(credentialFilename)
+	if err != nil {
+		return err
+	}
+
+	client, err := setupHttpClient(cert)
+	if err != nil {
+		return err
+	}
+	accountList, err := getAccountsList(client, baseUrl)
+	if err != nil {
+		return err
+	}
 
 	for _, account := range accountList.CloudAccounts {
 		for _, roleName := range account.AvailableRoles {
@@ -249,7 +266,7 @@ func getCerts(cert tls.Certificate, baseUrl string,
 			if err != nil {
 				log.Fatalf("error on regexp=%s", err)
 			}
-			err = getAndUptateCreds(client, baseUrl,
+			err = getAndUpdateCreds(client, baseUrl,
 				account.Name, roleName, credFile,
 				outputProfilePrefix, lowerCaseProfileName)
 			if err != nil {
@@ -298,21 +315,21 @@ func getUserHomeDir() (homeDir string) {
 	return
 }
 
-func Usage() {
+func usage() {
 	fmt.Fprintf(
 		os.Stderr, "Usage of %s (version %s):\n", os.Args[0], Version)
 	flag.PrintDefaults()
 }
 
 func main() {
-	flag.Usage = Usage
+	flag.Usage = usage
 	flag.Parse()
 
 	config, err := loadVerifyConfigFile(*configFilename)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if *outputProfilePrefix != DefaultOutputProfilePrefix {
+	if *outputProfilePrefix != defaultOutputProfilePrefix {
 		config.OutputProfilePrefix = *outputProfilePrefix
 	}
 	if *baseURL != "" {
