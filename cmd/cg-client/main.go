@@ -97,7 +97,7 @@ func loadVerifyConfigFile(filename string) (AppConfigFile, error) {
 }
 
 func saveDefaultConfig(configFilename string) error {
-	os.MkdirAll(filepath.Dir(configFilename), 0750)
+	os.MkdirAll(filepath.Dir(configFilename), 0755)
 	config := AppConfigFile{
 		BaseURL:              DefaultBaseURL,
 		OutputProfilePrefix:  defaultOutputProfilePrefix,
@@ -107,7 +107,7 @@ func saveDefaultConfig(configFilename string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(configFilename, configBytes, 0640)
+	return ioutil.WriteFile(configFilename, configBytes, 0644)
 
 }
 
