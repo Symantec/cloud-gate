@@ -28,7 +28,7 @@ var (
 	// process can inject the version number on the fly when building the
 	// binary. Use only from the Usage() function.
 	Version        = "No version provided"
-	DefaultBaseURL = "https://cloud-gate.example.com"
+	DefaultBaseURL = ""
 )
 
 const defaultOutputProfilePrefix = "saml-"
@@ -69,15 +69,15 @@ type AWSCredentialsJSON struct {
 	Expiration   time.Time `json:"cloudgate_comment_expiration,omitempty"`
 }
 
-func loadVerifyConfigFile(configFilename string) (AppConfigFile, error) {
+func loadVerifyConfigFile(filename string) (AppConfigFile, error) {
 	var config AppConfigFile
-	if _, err := os.Stat(configFilename); os.IsNotExist(err) {
-		err = saveDefaultConfig(configFilename)
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		err = saveDefaultConfig(filename)
 		if err != nil {
 			return config, err
 		}
 	}
-	source, err := ioutil.ReadFile(configFilename)
+	source, err := ioutil.ReadFile(filename)
 	if err != nil {
 		err = errors.New("cannot read config file")
 		return config, err
