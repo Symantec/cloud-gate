@@ -75,7 +75,7 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 		return nil, "", err
 	}
 	if sessionCredentials == nil {
-		return nil, "", errors.New(fmt.Sprintf("No valid profile=%s", profileName))
+		return nil, "", fmt.Errorf("No valid profile=%s", profileName)
 	}
 
 	// This is strange, no error calling?
@@ -91,7 +91,7 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 	}
 
 	arnRolePrefix := "arn:aws:iam"
-	if region == "us-gov-west-1" {
+	if strings.HasPrefix(region, "us-gov-") {
 		arnRolePrefix = "arn:aws-us-gov:iam"
 	}
 	roleArn := fmt.Sprintf("%s::%s:role/%s", arnRolePrefix, accountID, roleName)
@@ -399,7 +399,7 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 
 	federationUrl := "https://signin.aws.amazon.com/federation"
 	awsDestinationURL := "https://console.aws.amazon.com/"
-	if region == "us-gov-west-1" {
+	if strings.HasPrefix(region, "us-gov-") {
 		federationUrl = "https://signin.amazonaws-us-gov.com/federation"
 		awsDestinationURL = "https://console.amazonaws-us-gov.com/"
 	}
@@ -454,7 +454,7 @@ func (b *Broker) generateTokenCredentials(accountName string, roleName string, u
 		}
 	}
 	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
-	if region != "us-gov-west-1" {
+	if !strings.HasPrefix(region, "us-gov-") {
 		region = ""
 	}
 	outVal := broker.AWSCredentialsJSON{
