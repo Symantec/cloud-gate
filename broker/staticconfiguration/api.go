@@ -13,6 +13,7 @@ type BaseConfig struct {
 	AccountConfigurationUrl           string        `yaml:"account_configuration_url"`
 	AccountConfigurationCheckInterval time.Duration `yaml:"account_configuration_check_interval"`
 	ClientCAFilename                  string        `yaml:"client_ca_filename"`
+	SharedDataDirectory               string        `yaml:"shared_data_directory"`
 }
 
 type OpenIDConfig struct {
