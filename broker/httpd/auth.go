@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/Symantec/cloud-gate/lib/constants"
 )
 
 func randomStringGeneration() (string, error) {
@@ -39,9 +41,9 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expires := time.Now().Add(time.Hour * cookieExpirationHours)
+	expires := time.Now().Add(time.Hour * constants.CookieExpirationHours)
 
-	userCookie := http.Cookie{Name: authCookieName, Value: randomString, Path: "/", Expires: expires, HttpOnly: true, Secure: true}
+	userCookie := http.Cookie{Name: constants.AuthCookieName, Value: randomString, Path: "/", Expires: expires, HttpOnly: true, Secure: true}
 
 	http.SetCookie(w, &userCookie)
 
@@ -55,17 +57,15 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func setupSecurityHeaders(w http.ResponseWriter) error {
-	//all common security headers go here
+	// All common security headers go here
 	w.Header().Set("Strict-Transport-Security", "max-age=31536")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-XSS-Protection", "1")
-	//w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self' code.jquery.com; connect-src 'self'; img-src 'self'; style-src 'self';")
 	w.Header().Set("Content-Security-Policy", "default-src 'self' ;style-src 'self' maxcdn.bootstrapcdn.com fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com fonts.googleapis.com")
-
 	return nil
 }
 
-func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (s *Server) getRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
 	// If you have a verified cert, no need for cookies
 	if r.TLS != nil {
 		if len(r.TLS.VerifiedChains) > 0 {
@@ -74,12 +74,12 @@ func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 		}
 	}
 
-	_ = setupSecurityHeaders(w)
+	setupSecurityHeaders(w)
 
-	remoteCookie, err := r.Cookie(authCookieName)
+	remoteCookie, err := r.Cookie(constants.AuthCookieName)
 	if err != nil {
 		s.logger.Println(err)
-		http.Redirect(w, r, loginPath, http.StatusFound)
+		http.Redirect(w, r, constants.LoginPath, http.StatusFound)
 		return "", err
 	}
 	s.cookieMutex.Lock()
@@ -87,11 +87,11 @@ func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 	authInfo, ok := s.authCookie[remoteCookie.Value]
 
 	if !ok {
-		http.Redirect(w, r, loginPath, http.StatusFound)
+		http.Redirect(w, r, constants.LoginPath, http.StatusFound)
 		return "", errors.New("Cookie not found")
 	}
 	if authInfo.ExpiresAt.Before(time.Now()) {
-		http.Redirect(w, r, loginPath, http.StatusFound)
+		http.Redirect(w, r, constants.LoginPath, http.StatusFound)
 		return "", errors.New("Expired Cookie")
 	}
 	return authInfo.Username, nil
