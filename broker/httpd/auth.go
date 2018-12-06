@@ -77,9 +77,7 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	s.authCookie[userCookie.Value] = Cookieinfo
 	s.cookieMutex.Unlock()
 
-	destinationPath := getRedirDestination(r)
-
-	http.Redirect(w, r, destinationPath, http.StatusFound)
+	http.Redirect(w, r, getRedirDestination(r), http.StatusFound)
 }
 
 func setupSecurityHeaders(w http.ResponseWriter) error {
