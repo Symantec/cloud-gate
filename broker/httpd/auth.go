@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Symantec/cloud-gate/lib/constants"
 )
 
 func randomStringGeneration() (string, error) {
@@ -63,9 +65,9 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expires := time.Now().Add(time.Hour * cookieExpirationHours)
+	expires := time.Now().Add(time.Hour * constants.CookieExpirationHours)
 
-	userCookie := http.Cookie{Name: authCookieName, Value: randomString, Path: "/", Expires: expires, HttpOnly: true, Secure: true}
+	userCookie := http.Cookie{Name: constants.AuthCookieName, Value: randomString, Path: "/", Expires: expires, HttpOnly: true, Secure: true}
 
 	http.SetCookie(w, &userCookie)
 
@@ -81,16 +83,15 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func setupSecurityHeaders(w http.ResponseWriter) error {
-	//all common security headers go here
+	// All common security headers go here
 	w.Header().Set("Strict-Transport-Security", "max-age=31536")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-XSS-Protection", "1")
 	w.Header().Set("Content-Security-Policy", "default-src 'self' ;style-src 'self' maxcdn.bootstrapcdn.com fonts.googleapis.com 'unsafe-inline'; font-src maxcdn.bootstrapcdn.com fonts.gstatic.com fonts.googleapis.com")
-
 	return nil
 }
 
-func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (s *Server) getRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
 	// If you have a verified cert, no need for cookies
 	if r.TLS != nil {
 		if len(r.TLS.VerifiedChains) > 0 {
@@ -99,13 +100,13 @@ func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 		}
 	}
 
-	_ = setupSecurityHeaders(w)
+	setupSecurityHeaders(w)
 
 	v := url.Values{}
 	v.Set("returnURL", r.URL.String())
-	redirURL := loginPath + "?" + v.Encode()
+	redirURL := constants.LoginPath + "?" + v.Encode()
 
-	remoteCookie, err := r.Cookie(authCookieName)
+	remoteCookie, err := r.Cookie(constants.AuthCookieName)
 	if err != nil {
 		s.logger.Println(err)
 		http.Redirect(w, r, redirURL, http.StatusFound)

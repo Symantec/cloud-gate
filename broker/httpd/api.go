@@ -18,6 +18,7 @@ import (
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
+	"github.com/Symantec/cloud-gate/lib/constants"
 	"github.com/Symantec/cloud-gate/lib/userinfo"
 	"github.com/cviecco/go-simple-oidc-auth/authhandler"
 
@@ -44,26 +45,6 @@ type Server struct {
 	authSource   *authhandler.SimpleOIDCAuth
 	staticConfig *staticconfiguration.StaticConfiguration
 	userInfo     userinfo.UserInfo
-}
-
-const secondsBetweenCleanup = 60
-const loginPath = "/login/"
-const oidcCallbackPath = "/auth/oidcsimple/callback"
-const cookieExpirationHours = 3
-const authCookieName = "auth_cookie"
-
-func (s *Server) performStateCleanup(secsBetweenCleanup int) {
-	for {
-		s.cookieMutex.Lock()
-		for key, authCookie := range s.authCookie {
-			if authCookie.ExpiresAt.Before(time.Now()) {
-				delete(s.authCookie, key)
-			}
-		}
-		s.cookieMutex.Unlock()
-		time.Sleep(time.Duration(secsBetweenCleanup) * time.Second)
-	}
-
 }
 
 func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +79,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		staticConfig: staticConfig,
 	}
 	server.authCookie = make(map[string]AuthCookie)
-	go server.performStateCleanup(secondsBetweenCleanup)
+	go server.performStateCleanup(constants.SecondsBetweenCleanup)
 
 	// load templates
 	templatesPath := filepath.Join(staticConfig.Base.SharedDataDirectory, "customization_data", "templates")
@@ -116,7 +97,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		}
 	}
 
-	/// Load the oter built in templates
+	// Load the other built in templates
 	extraTemplates := []string{footerTemplateText, consoleAccessTemplateText, generateTokaneTemplateText, headerTemplateText}
 	for _, templateString := range extraTemplates {
 		_, err = server.htmlTemplate.Parse(templateString)
@@ -125,7 +106,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		}
 	}
 
-	http.HandleFunc("/", server.rootHandler)
+	http.HandleFunc("/", server.dashboardRootHandler)
 	http.HandleFunc("/status", server.statusHandler)
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.mainEntryPointHandler)
@@ -140,10 +121,9 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	//setup openidc auth
 	ctx := context.Background()
 	simpleOidcAuth := authhandler.NewSimpleOIDCAuth(&ctx, staticConfig.OpenID.ClientID, staticConfig.OpenID.ClientSecret, staticConfig.OpenID.ProviderURL)
-	//authhandler.NewSimpleOIDCAuthFromConfig(&openidConfigFilename, nil)
 	server.authSource = simpleOidcAuth
-	serviceMux.Handle(oidcCallbackPath, simpleOidcAuth.Handler(http.HandlerFunc(server.consoleAccessHandler)))
-	serviceMux.Handle(loginPath, simpleOidcAuth.Handler(http.HandlerFunc(server.loginHandler)))
+	serviceMux.Handle(constants.OidcCallbackPath, simpleOidcAuth.Handler(http.HandlerFunc(server.consoleAccessHandler)))
+	serviceMux.Handle(constants.LoginPath, simpleOidcAuth.Handler(http.HandlerFunc(server.loginHandler)))
 
 	statusServer := &http.Server{
 		ReadTimeout:  5 * time.Second,
