@@ -47,6 +47,18 @@ type Server struct {
 	userInfo     userinfo.UserInfo
 }
 
+func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/favicon.ico" {
+		http.Redirect(w, r, "/custom_static/favicon.ico", http.StatusFound)
+		return
+	}
+	if r.URL.Path != "/" {
+		http.Error(w, "error not found", http.StatusNotFound)
+		return
+	}
+	s.consoleAccessHandler(w, r)
+}
+
 func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	userInfo userinfo.UserInfo,
 	brokers map[string]broker.Broker,
@@ -97,7 +109,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	http.HandleFunc("/", server.dashboardRootHandler)
 	http.HandleFunc("/status", server.statusHandler)
 	serviceMux := http.NewServeMux()
-	serviceMux.HandleFunc("/", server.consoleAccessHandler)
+	serviceMux.HandleFunc("/", server.mainEntryPointHandler)
 	serviceMux.HandleFunc("/getconsole", server.getConsoleUrlHandler)
 	serviceMux.HandleFunc("/generatetoken", server.generateTokenHandler)
 	serviceMux.HandleFunc("/static/", staticHandler)
