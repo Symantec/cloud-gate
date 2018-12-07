@@ -67,7 +67,7 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	expires := time.Now().Add(time.Hour * constants.CookieExpirationHours)
 
-	userCookie := http.Cookie{Name: constants.AuthCookieName, Value: randomString, Path: "/", Expires: expires, HttpOnly: true, Secure: true}
+	userCookie := http.Cookie{Name: authCookieName, Value: randomString, Path: "/", Expires: expires, HttpOnly: true, Secure: true}
 
 	http.SetCookie(w, &userCookie)
 
@@ -104,7 +104,7 @@ func (s *Server) getRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 	v.Set("returnURL", r.URL.String())
 	redirURL := constants.LoginPath + "?" + v.Encode()
 
-	remoteCookie, err := r.Cookie(constants.AuthCookieName)
+	remoteCookie, err := r.Cookie(authCookieName)
 	if err != nil {
 		s.logger.Println(err)
 		http.Redirect(w, r, redirURL, http.StatusFound)

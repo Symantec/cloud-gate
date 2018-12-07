@@ -47,6 +47,8 @@ type Server struct {
 	userInfo     userinfo.UserInfo
 }
 
+var authCookieName = constants.AuthCookieName
+
 func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/favicon.ico" {
 		http.Redirect(w, r, "/custom_static/favicon.ico", http.StatusFound)
@@ -63,6 +65,12 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	userInfo userinfo.UserInfo,
 	brokers map[string]broker.Broker,
 	logger log.DebugLogger) (*Server, error) {
+
+	authCookieSuffix, err := randomStringGeneration()
+	if err != nil {
+		return nil, err
+	}
+	authCookieName = constants.AuthCookieName + "_" + authCookieSuffix[0:6]
 
 	statusListener, err := net.Listen("tcp", fmt.Sprintf(":%d", staticConfig.Base.StatusPort))
 	if err != nil {
