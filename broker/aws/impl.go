@@ -439,10 +439,7 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 	b.logger.Debugf(1, "targetURL=%s", targetUrl)
 
 	logString := fmt.Sprintf("Console url generated for: %s on account %s role %s", userName, accountName, roleName)
-	b.logger.Printf("%s", logString)
-	if b.syslog != nil {
-		b.syslog.Notice(logString)
-	}
+	b.auditLogger.Printf("%s", logString)
 	return targetUrl, nil
 }
 
@@ -468,10 +465,7 @@ func (b *Broker) generateTokenCredentials(accountName string, roleName string, u
 		Region:       region,
 	}
 	logString := fmt.Sprintf("Token credentials generated for: %s on account %s role %s", userName, accountName, roleName)
-	b.logger.Printf("%s", logString)
-	if b.syslog != nil {
-		b.syslog.Notice(logString)
-	}
+	b.auditLogger.Printf("%s", logString)
 
 	return &outVal, nil
 }
