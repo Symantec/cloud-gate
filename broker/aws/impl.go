@@ -63,7 +63,7 @@ func (b *Broker) getCredentialsFromProfile(profileName string) (*credentials.Cre
 	}
 	region := cfg.Section(profileName).Key("region").String()
 	if region == "" {
-		region = "us-east-1"
+		region = "us-west-2"
 	}
 	sessionCredentials := credentials.NewStaticCredentials(accessKeyID, secretAccessKey, "")
 	return sessionCredentials, region, nil
@@ -272,7 +272,8 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 		}
 		rolesForAccount, err := b.getAWSRolesForAccount(accountName)
 		if err != nil {
-			return nil, err
+			b.logger.Printf("Error getting profile for account %s: %s", accountName, err)
+			continue
 		}
 		allowedAndAvailable := stringIntersectionNoDups(rolesForAccount, allowedRoles)
 		sort.Strings(allowedAndAvailable)

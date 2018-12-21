@@ -1,5 +1,5 @@
 Name:           cloud-gate
-Version:        0.6.0
+Version:        0.6.2
 Release:        1%{?dist}
 Summary:        Access broker for clouds
 
@@ -38,6 +38,7 @@ install -p -m 0644 cmd/cloud-gate/customization_data/templates/header_extra.tmpl
 install -p -m 0644 cmd/cloud-gate/customization_data/templates/footer_extra.tmpl %{buildroot}/%{_datarootdir}/cloud-gate/customization_data/templates/footer_extra.tmpl
 install -d %{buildroot}/%{_datarootdir}/cloud-gate/customization_data/web_resources
 install -p -m 0644 cmd/cloud-gate/customization_data/web_resources/favicon.ico %{buildroot}/%{_datarootdir}/cloud-gate/customization_data/web_resources/favicon.ico
+install -p -m 0644 cmd/cloud-gate/customization_data/web_resources/customization.css %{buildroot}/%{_datarootdir}/cloud-gate/customization_data/web_resources/customization.css
 
 %pre
 /usr/bin/getent passwd cloud-gate || useradd -d /var/lib/cloud-gate -s /bin/false -U -r  cloud-gate
