@@ -3,10 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"log/syslog"
 	"os"
 	"strings"
 
+	"github.com/Symantec/Dominator/lib/log/debuglogger"
 	"github.com/Symantec/Dominator/lib/log/serverlogger"
+	"github.com/Symantec/Dominator/lib/log/teelogger"
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/aws"
 	"github.com/Symantec/cloud-gate/broker/configuration"
@@ -28,6 +32,13 @@ func main() {
 		os.Exit(1)
 	}
 	logger := serverlogger.New("")
+
+	syslogWriter, err := syslog.New(syslog.LOG_AUTHPRIV|syslog.LOG_NOTICE, "cloud-gate")
+	if err != nil {
+		logger.Printf("Could not open connection to local syslog daemon")
+		syslogWriter = nil
+	}
+	auditLogger := teelogger.New(logger, debuglogger.Upgrade(log.New(syslogWriter, "", 0)))
 
 	staticConfig, err := staticconfiguration.LoadVerifyConfigFile(*configFilename)
 	if err != nil {
@@ -54,7 +65,8 @@ func main() {
 	}
 
 	brokers := map[string]broker.Broker{
-		"aws": aws.New(userInfo, staticConfig.Base.AWSCredentialsFilename, logger),
+		"aws": aws.New(userInfo, staticConfig.Base.AWSCredentialsFilename,
+			logger, auditLogger),
 	}
 
 	webServer, err := httpd.StartServer(staticConfig, userInfo, brokers, logger)

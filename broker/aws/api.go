@@ -26,6 +26,7 @@ type Broker struct {
 	userInfo                    userinfo.UserInfo
 	credentialsFilename         string
 	logger                      log.DebugLogger
+	auditLogger                 log.DebugLogger
 	userAllowedCredentialsCache map[string]userAllowedCredentialsCacheEntry
 	userAllowedCredentialsMutex sync.Mutex
 	accountRoleCache            map[string]accountRoleCacheEntry
@@ -34,10 +35,11 @@ type Broker struct {
 
 func New(userInfo userinfo.UserInfo,
 	credentialsFilename string,
-	logger log.DebugLogger) *Broker {
+	logger log.DebugLogger, auditLogger log.DebugLogger) *Broker {
 	return &Broker{userInfo: userInfo,
-		credentialsFilename: credentialsFilename,
-		logger:              logger,
+		credentialsFilename:         credentialsFilename,
+		logger:                      logger,
+		auditLogger:                 auditLogger,
 		userAllowedCredentialsCache: make(map[string]userAllowedCredentialsCacheEntry),
 		accountRoleCache:            make(map[string]accountRoleCacheEntry),
 	}
