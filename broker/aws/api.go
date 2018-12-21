@@ -35,11 +35,11 @@ type Broker struct {
 
 func New(userInfo userinfo.UserInfo,
 	credentialsFilename string,
-	logger log.DebugLogger, auditLog log.DebugLogger) *Broker {
+	logger log.DebugLogger, auditLogger log.DebugLogger) *Broker {
 	return &Broker{userInfo: userInfo,
 		credentialsFilename:         credentialsFilename,
 		logger:                      logger,
-		auditLogger:                 auditLog,
+		auditLogger:                 auditLogger,
 		userAllowedCredentialsCache: make(map[string]userAllowedCredentialsCacheEntry),
 		accountRoleCache:            make(map[string]accountRoleCacheEntry),
 	}

@@ -35,7 +35,7 @@ func main() {
 
 	syslogWriter, err := syslog.New(syslog.LOG_AUTHPRIV|syslog.LOG_NOTICE, "cloud-gate")
 	if err != nil {
-		logger.Printf("Cound not open connection to local syslog daemon")
+		logger.Printf("Could not open connection to local syslog daemon")
 		syslogWriter = nil
 	}
 	auditLogger := teelogger.New(logger, debuglogger.Upgrade(log.New(syslogWriter, "", 0)))
