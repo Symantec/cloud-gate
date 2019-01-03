@@ -9,4 +9,10 @@ const (
 	DefaultStatusPort                        = 6930
 	DefaultAccountConfigurationUrl           = "file:///etc/cloud-gate/accounts.yml"
 	DefaultAccountConfigurationCheckInterval = time.Minute * 5
+
+	SecondsBetweenCleanup = 60
+	LoginPath             = "/login/"
+	OidcCallbackPath      = "/auth/oidcsimple/callback"
+	CookieExpirationHours = 3
+	AuthCookieName        = "auth_cookie"
 )

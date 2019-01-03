@@ -12,7 +12,6 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=120")
 		fmt.Fprintf(w, "%s", commonCSS)
 		return
-
 	}
 	http.Error(w, "error not found", http.StatusNotFound)
 }

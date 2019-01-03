@@ -60,8 +60,8 @@ func (b *Broker) GetUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	return b.getUserAllowedAccounts(username)
 }
 
-func (b *Broker) UserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
-	return b.userAllowedToAssumeRole(username, accountName, roleName)
+func (b *Broker) IsUserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
+	return b.isUserAllowedToAssumeRole(username, accountName, roleName)
 }
 
 func (b *Broker) GetConsoleURLForAccountRole(accountName string, roleName string, userName string, issuerURL string) (string, error) {
