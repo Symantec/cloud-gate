@@ -108,7 +108,6 @@ func (s *Server) generateValidStateString(r *http.Request) (string, error) {
 	sig, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.HS256, Key: key}, (&jose.SignerOptions{}).WithType("JWT"))
 	if err != nil {
 		s.logger.Printf("err=%s", err)
-		//http.Error(w, "Internal Error ", http.StatusInternalServerError)
 		return "", err
 	}
 	issuer := "cloud-gate"
@@ -124,23 +123,6 @@ func (s *Server) generateValidStateString(r *http.Request) (string, error) {
 
 // This is where the redirect to the oath2 provider is computed.
 func (s *Server) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter, r *http.Request) {
-	/*
-		key := []byte(s.staticConfig.Base.SharedSecrets[0])
-		sig, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.HS256, Key: key}, (&jose.SignerOptions{}).WithType("JWT"))
-		if err != nil {
-			s.logger.Printf("err=%s", err)
-			http.Error(w, "Internal Error ", http.StatusInternalServerError)
-			return
-		}
-		issuer := "cloud-gate"
-		subject := "state:" + redirCookieName
-		stateToken := oauth2StateJWT{Issuer: issuer, Subject: subject,
-			Audience:  []string{issuer},
-			ReturnURL: r.URL.String()}
-		stateToken.NotBefore = time.Now().Unix()
-		stateToken.IssuedAt = stateToken.NotBefore
-		stateToken.Expiration = stateToken.IssuedAt + maxAgeSecondsRedirCookie
-	*/
 	stateString, err := s.generateValidStateString(r)
 	if err != nil {
 		s.logger.Printf("err=%s", err)

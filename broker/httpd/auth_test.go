@@ -1,10 +1,7 @@
 package httpd
 
 import (
-	//"encoding/json"
-	//"errors"
 	"fmt"
-	//"io/ioutil"
 	stdlog "log"
 	"net/http"
 	"net/http/httptest"
