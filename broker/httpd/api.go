@@ -18,6 +18,7 @@ import (
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
+	"github.com/Symantec/cloud-gate/lib/constants"
 	"github.com/Symantec/cloud-gate/lib/userinfo"
 )
 
@@ -43,27 +44,7 @@ type Server struct {
 	netClient    *http.Client
 }
 
-const secondsBetweenCleanup = 60
-const cookieExpirationHours = 3
-const maxAgeSecondsRedirCookie = 120
-const redirCookieName = "oauth2_redir"
-const oauth2redirectPath = "/oauth2/redirectendpoint"
-
-var authCookieName = "auth_cookie"
-
-func (s *Server) performStateCleanup(secsBetweenCleanup int) {
-	for {
-		s.cookieMutex.Lock()
-		for key, authCookie := range s.authCookie {
-			if authCookie.ExpiresAt.Before(time.Now()) {
-				delete(s.authCookie, key)
-			}
-		}
-		s.cookieMutex.Unlock()
-		time.Sleep(time.Duration(secsBetweenCleanup) * time.Second)
-	}
-
-}
+var authCookieName = constants.AuthCookieName
 
 func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/favicon.ico" {
@@ -86,7 +67,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	if err != nil {
 		return nil, err
 	}
-	authCookieName = authCookieName + "_" + authCookieSuffix[0:6]
+	authCookieName = constants.AuthCookieName + "_" + authCookieSuffix[0:6]
 
 	statusListener, err := net.Listen("tcp", fmt.Sprintf(":%d", staticConfig.Base.StatusPort))
 	if err != nil {
@@ -106,7 +87,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		},
 	}
 	server.authCookie = make(map[string]AuthCookie)
-	go server.performStateCleanup(secondsBetweenCleanup)
+	go server.performStateCleanup(constants.SecondsBetweenCleanup)
 
 	// load templates
 	templatesPath := filepath.Join(staticConfig.Base.SharedDataDirectory, "customization_data", "templates")
@@ -124,7 +105,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		}
 	}
 
-	/// Load the oter built in templates
+	// Load the other built in templates
 	extraTemplates := []string{footerTemplateText, consoleAccessTemplateText, generateTokaneTemplateText, headerTemplateText}
 	for _, templateString := range extraTemplates {
 		_, err = server.htmlTemplate.Parse(templateString)
@@ -133,7 +114,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		}
 	}
 
-	http.HandleFunc("/", server.rootHandler)
+	http.HandleFunc("/", server.dashboardRootHandler)
 	http.HandleFunc("/status", server.statusHandler)
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.mainEntryPointHandler)
@@ -146,7 +127,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	}
 
 	//setup openidc auth
-	serviceMux.HandleFunc(oauth2redirectPath, server.oauth2RedirectPathHandler)
+	serviceMux.HandleFunc(constants.Oauth2redirectPath, server.oauth2RedirectPathHandler)
 
 	statusServer := &http.Server{
 		ReadTimeout:  5 * time.Second,

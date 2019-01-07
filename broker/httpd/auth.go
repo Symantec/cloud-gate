@@ -15,6 +15,8 @@ import (
 
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
+
+	"github.com/Symantec/cloud-gate/lib/constants"
 )
 
 type oauth2StateJWT struct {
@@ -59,7 +61,7 @@ func (s *Server) setAndStoreAuthCookie(w http.ResponseWriter, username string) e
 		s.logger.Println(err)
 		return err
 	}
-	expires := time.Now().Add(time.Hour * cookieExpirationHours)
+	expires := time.Now().Add(time.Hour * constants.CookieExpirationHours)
 
 	userCookie := http.Cookie{Name: authCookieName, Value: randomString, Path: "/", Expires: expires, HttpOnly: true, Secure: true}
 
@@ -74,7 +76,7 @@ func (s *Server) setAndStoreAuthCookie(w http.ResponseWriter, username string) e
 }
 
 func (s *Server) getRedirURL(r *http.Request) string {
-	return "https://" + r.Host + oauth2redirectPath
+	return "https://" + r.Host + constants.Oauth2redirectPath
 }
 
 func (s *Server) generateAuthCodeURL(state string, r *http.Request) string {
@@ -110,13 +112,13 @@ func (s *Server) generateValidStateString(r *http.Request) (string, error) {
 		return "", err
 	}
 	issuer := "cloud-gate"
-	subject := "state:" + redirCookieName
+	subject := "state:" + constants.RedirCookieName
 	stateToken := oauth2StateJWT{Issuer: issuer, Subject: subject,
 		Audience:  []string{issuer},
 		ReturnURL: r.URL.String()}
 	stateToken.NotBefore = time.Now().Unix()
 	stateToken.IssuedAt = stateToken.NotBefore
-	stateToken.Expiration = stateToken.IssuedAt + maxAgeSecondsRedirCookie
+	stateToken.Expiration = stateToken.IssuedAt + constants.MaxAgeSecondsRedirCookie
 	return jwt.Signed(sig).Claims(stateToken).CompactSerialize()
 }
 
@@ -217,7 +219,7 @@ func (s *Server) getVerifyReturnStateJWT(r *http.Request) (oauth2StateJWT, error
 	// At this point we know the signature is valid, but now we must
 	//validate the contents of the jtw token
 	issuer := "cloud-gate"
-	subject := "state:" + redirCookieName
+	subject := "state:" + constants.RedirCookieName
 	if inboundJWT.Issuer != issuer || inboundJWT.Subject != subject ||
 		inboundJWT.NotBefore > time.Now().Unix() || inboundJWT.Expiration < time.Now().Unix() {
 		err = errors.New("invalid JWT values")
@@ -302,16 +304,15 @@ func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func setupSecurityHeaders(w http.ResponseWriter) error {
-	//all common security headers go here
+	// All common security headers go here
 	w.Header().Set("Strict-Transport-Security", "max-age=31536")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-XSS-Protection", "1")
 	w.Header().Set("Content-Security-Policy", "default-src 'self' ;style-src 'self' maxcdn.bootstrapcdn.com fonts.googleapis.com 'unsafe-inline'; font-src maxcdn.bootstrapcdn.com fonts.gstatic.com fonts.googleapis.com")
-
 	return nil
 }
 
-func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (s *Server) getRemoteUserName(w http.ResponseWriter, r *http.Request) (string, error) {
 	// If you have a verified cert, no need for cookies
 	if r.TLS != nil {
 		if len(r.TLS.VerifiedChains) > 0 {
@@ -320,7 +321,7 @@ func (s *Server) GetRemoteUserName(w http.ResponseWriter, r *http.Request) (stri
 		}
 	}
 
-	_ = setupSecurityHeaders(w)
+	setupSecurityHeaders(w)
 
 	remoteCookie, err := r.Cookie(authCookieName)
 	if err != nil {
