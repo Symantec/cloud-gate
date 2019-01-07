@@ -235,19 +235,24 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 		groupToAccountName[groupName] = account.Name
 		groupList = append(groupList, groupName)
 	}
-	reString := fmt.Sprintf("(?i)(%s)-(.*)$", strings.Join(groupList, "|"))
-	re, err := regexp.Compile(reString)
-	if err != nil {
-		return nil, err
-	}
 	var allowedRoles map[string][]string
 	allowedRoles = make(map[string][]string)
-	for _, group := range userGroups {
-		matches := re.FindStringSubmatch(group)
-		if len(matches) == 3 {
-			b.logger.Debugf(2, "matches=%v", matches)
-			accountGroupName := strings.ToLower(matches[1])
-			allowedRoles[accountGroupName] = append(allowedRoles[accountGroupName], matches[2])
+
+	for _, accountName := range groupList {
+		reString := fmt.Sprintf("(?i)^%s-(.*)$", accountName)
+		b.logger.Debugf(2, "reString=%v", reString)
+		re, err := regexp.Compile(reString)
+		if err != nil {
+			return nil, err
+		}
+		for _, group := range userGroups {
+			matches := re.FindStringSubmatch(group)
+			b.logger.Debugf(4, "matches-XXX=%v %d", matches, len(matches))
+			if len(matches) == 2 {
+				b.logger.Debugf(2, "matches=%v", matches)
+				accountGroupName := accountName
+				allowedRoles[accountGroupName] = append(allowedRoles[accountGroupName], matches[1])
+			}
 		}
 	}
 	b.logger.Debugf(1, "allowedRoles(pre)=%v", allowedRoles)
@@ -276,6 +281,9 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 			continue
 		}
 		allowedAndAvailable := stringIntersectionNoDups(rolesForAccount, allowedRoles)
+		if len(allowedAndAvailable) < 1 {
+			continue
+		}
 		sort.Strings(allowedAndAvailable)
 
 		displayName, err := b.accountHumanNameFromName(accountName)
@@ -371,7 +379,9 @@ type SessionTokenResponseJSON struct {
 	SigninToken string `json:"SigninToken"`
 }
 
-func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string, userName string) (string, error) {
+const consoleSessionDurationSeconds = "900" //3600 * 12
+
+func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string, userName string, issuerURL string) (string, error) {
 	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, roleName, userName)
 	if err != nil {
 		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
@@ -412,7 +422,10 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 	q := req.URL.Query()
 	q.Add("Action", "getSigninToken")
 	q.Add("Session", string(bcreds[:]))
+	q.Add("SessionDuration", consoleSessionDurationSeconds)
 	req.URL.RawQuery = q.Encode()
+	b.logger.Debugf(2, "req=%+v", req)
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -436,7 +449,9 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 	if err != nil {
 		return "", err
 	}
-	targetUrl := fmt.Sprintf("%s?Action=login&Issuer=https://example.com&Destination=%s&SigninToken=%s", federationUrl, awsDestinationURL, tokenOutput.SigninToken)
+	b.logger.Debugf(1, "Issuer=%s", issuerURL)
+	encodedIssuer := url.QueryEscape(issuerURL)
+	targetUrl := fmt.Sprintf("%s?Action=login&Issuer=%s&Destination=%s&SigninToken=%s", federationUrl, encodedIssuer, awsDestinationURL, tokenOutput.SigninToken)
 	b.logger.Debugf(1, "targetURL=%s", targetUrl)
 
 	b.auditLogger.Printf("Console url generated for: %s on account %s role %s", userName, accountName, roleName)

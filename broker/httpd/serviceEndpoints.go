@@ -3,6 +3,7 @@ package httpd
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -145,7 +146,8 @@ func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid account or Role", http.StatusForbidden)
 		return
 	}
-	destUrl, err := s.brokers["aws"].GetConsoleURLForAccountRole(accountName, roleName, authUser)
+	issuerURL := fmt.Sprintf("https://%s%s", r.Host, r.URL.String())
+	destUrl, err := s.brokers["aws"].GetConsoleURLForAccountRole(accountName, roleName, authUser, issuerURL)
 	if err != nil {
 		s.logger.Printf("Failed to execute %v", err)
 		http.Error(w, "error", http.StatusInternalServerError)
