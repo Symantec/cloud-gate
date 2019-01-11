@@ -102,7 +102,7 @@ func (s *Server) generateValidStateString(r *http.Request) (string, error) {
 	key := []byte(s.staticConfig.Base.SharedSecrets[0])
 	sig, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.HS256, Key: key}, (&jose.SignerOptions{}).WithType("JWT"))
 	if err != nil {
-		s.logger.Debugf(1, "New jose signer error err=%s", err)
+		s.logger.Debugf(1, "New jose signer error err: %s", err)
 		return "", err
 	}
 	issuer := "cloud-gate"
@@ -122,7 +122,7 @@ func (s *Server) generateValidStateString(r *http.Request) (string, error) {
 func (s *Server) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter, r *http.Request) {
 	stateString, err := s.generateValidStateString(r)
 	if err != nil {
-		s.logger.Printf("Error from generateValidStateString err=%s\n", err)
+		s.logger.Printf("Error from generateValidStateString err: %s\n", err)
 		http.Error(w, "Internal Error ", http.StatusInternalServerError)
 		return
 	}
@@ -161,14 +161,14 @@ func getUsernameFromUserinfo(userInfo openidConnectUserInfo) string {
 func (s *Server) getBytesFromSuccessfullPost(url string, data url.Values) ([]byte, error) {
 	response, err := s.netClient.PostForm(url, data)
 	if err != nil {
-		s.logger.Debugf(1, "client post error err=%s\n", err)
+		s.logger.Debugf(1, "client post error err: %s\n", err)
 		return nil, err
 	}
 	defer response.Body.Close()
 
 	responseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		s.logger.Debugf(1, "Error reading http responseBody err=%s\n", err)
+		s.logger.Debugf(1, "Error reading http responseBody err: %s\n", err)
 		return nil, err
 	}
 
@@ -190,7 +190,7 @@ func (s *Server) getVerifyReturnStateJWT(r *http.Request) (oauth2StateJWT, error
 		return inboundJWT, err
 	}
 	if err := s.JWTClaims(tok, &inboundJWT); err != nil {
-		s.logger.Debugf(1, "error parsing claims err=%s\n", err)
+		s.logger.Debugf(1, "error parsing claims err: %s\n", err)
 		return inboundJWT, err
 	}
 	// At this point we know the signature is valid, but now we must
@@ -219,7 +219,7 @@ func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Reques
 	}
 	inboundJWT, err := s.getVerifyReturnStateJWT(r)
 	if err != nil {
-		s.logger.Printf("error processing state err=%s\n", err)
+		s.logger.Printf("error processing state err: %s\n", err)
 		http.Error(w, "null or bad inboundState", http.StatusUnauthorized)
 		return
 	}
@@ -233,7 +233,7 @@ func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Reques
 			"client_secret": {s.staticConfig.OpenID.ClientSecret},
 		})
 	if err != nil {
-		s.logger.Printf("Error getting byes fom post err=%s", err)
+		s.logger.Printf("Error getting byes fom post err: %s", err)
 		http.Error(w, "bad transaction with openic context ", http.StatusInternalServerError)
 		return
 	}
@@ -255,7 +255,7 @@ func (s *Server) oauth2RedirectPathHandler(w http.ResponseWriter, r *http.Reques
 	userInfoRespBody, err := s.getBytesFromSuccessfullPost(s.staticConfig.OpenID.UserinfoURL,
 		url.Values{"access_token": {oauth2AccessToken.AccessToken}})
 	if err != nil {
-		s.logger.Printf("err=%s", err)
+		s.logger.Println(err)
 		http.Error(w, "bad transaction with openic context ", http.StatusInternalServerError)
 		return
 	}
