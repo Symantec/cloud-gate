@@ -20,9 +20,6 @@ import (
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
 	"github.com/Symantec/cloud-gate/lib/constants"
 	"github.com/Symantec/cloud-gate/lib/userinfo"
-	"github.com/cviecco/go-simple-oidc-auth/authhandler"
-
-	"golang.org/x/net/context"
 )
 
 type HtmlWriter interface {
@@ -42,9 +39,9 @@ type Server struct {
 	logger       log.DebugLogger
 	cookieMutex  sync.Mutex
 	authCookie   map[string]AuthCookie
-	authSource   *authhandler.SimpleOIDCAuth
 	staticConfig *staticconfiguration.StaticConfiguration
 	userInfo     userinfo.UserInfo
+	netClient    *http.Client
 }
 
 var authCookieName = constants.AuthCookieName
@@ -85,6 +82,9 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		logger:       logger,
 		userInfo:     userInfo,
 		staticConfig: staticConfig,
+		netClient: &http.Client{
+			Timeout: time.Second * 15,
+		},
 	}
 	server.authCookie = make(map[string]AuthCookie)
 	go server.performStateCleanup(constants.SecondsBetweenCleanup)
@@ -127,11 +127,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	}
 
 	//setup openidc auth
-	ctx := context.Background()
-	simpleOidcAuth := authhandler.NewSimpleOIDCAuth(&ctx, staticConfig.OpenID.ClientID, staticConfig.OpenID.ClientSecret, staticConfig.OpenID.ProviderURL)
-	server.authSource = simpleOidcAuth
-	serviceMux.Handle(constants.OidcCallbackPath, simpleOidcAuth.Handler(http.HandlerFunc(server.consoleAccessHandler)))
-	serviceMux.Handle(constants.LoginPath, simpleOidcAuth.Handler(http.HandlerFunc(server.loginHandler)))
+	serviceMux.HandleFunc(constants.Oauth2redirectPath, server.oauth2RedirectPathHandler)
 
 	statusServer := &http.Server{
 		ReadTimeout:  5 * time.Second,

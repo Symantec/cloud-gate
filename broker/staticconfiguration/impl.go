@@ -1,12 +1,38 @@
 package staticconfiguration
 
 import (
+	"bufio"
 	"errors"
 	"os"
 
 	"github.com/Symantec/cloud-gate/lib/constants"
 	"gopkg.in/yaml.v2"
 )
+
+func getClusterSecretsFile(clusterSecretsFilename string) ([]string, error) {
+	file, err := os.Open(clusterSecretsFilename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	var rarray []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) < 2 {
+			continue
+		}
+		rarray = append(rarray, line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	if len(rarray) < 1 {
+		return nil, errors.New("empty cluster secretFile")
+	}
+	return rarray, nil
+}
 
 func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 	var config StaticConfiguration
@@ -37,6 +63,23 @@ func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 	if config.Base.AccountConfigurationCheckInterval == 0 {
 		config.Base.AccountConfigurationCheckInterval =
 			constants.DefaultAccountConfigurationCheckInterval
+	}
+	// Verify oauth2 setup
+	if len(config.OpenID.AuthURL) < 1 ||
+		len(config.OpenID.TokenURL) < 1 ||
+		len(config.OpenID.UserinfoURL) < 1 ||
+		len(config.OpenID.Scopes) < 1 ||
+		len(config.OpenID.ClientID) < 1 {
+		return nil, errors.New("invalid openid config")
+	}
+
+	// Verify shared secrets
+	if len(config.Base.ClusterSharedSecretFilename) < 0 {
+		return nil, errors.New("missing shared cluster secrets")
+	}
+	config.Base.SharedSecrets, err = getClusterSecretsFile(config.Base.ClusterSharedSecretFilename)
+	if err != nil {
+		return nil, err
 	}
 
 	return &config, nil

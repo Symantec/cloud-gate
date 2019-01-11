@@ -379,7 +379,7 @@ type SessionTokenResponseJSON struct {
 	SigninToken string `json:"SigninToken"`
 }
 
-const consoleSessionDurationSeconds = "900" //3600 * 12
+const consoleSessionDurationSeconds = "43000" //3600 * 12
 
 func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string, userName string, issuerURL string) (string, error) {
 	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, roleName, userName)
