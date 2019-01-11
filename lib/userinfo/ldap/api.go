@@ -3,7 +3,6 @@ package ldap
 import (
 	"crypto/x509"
 	"net/url"
-	//"time"
 
 	"github.com/Symantec/Dominator/lib/log"
 )
@@ -17,7 +16,6 @@ type UserInfo struct {
 	timeoutSecs       uint
 	rootCAs           *x509.CertPool
 	logger            log.DebugLogger
-	//GetUserGroups(username string, groupPrefix *string) ([]string, error)
 }
 
 func New(url []string, bindUsername string, bindPassword string,
@@ -28,5 +26,4 @@ func New(url []string, bindUsername string, bindPassword string,
 
 func (uinfo *UserInfo) GetUserGroups(username string, groupPrefix *string) ([]string, error) {
 	return uinfo.getUserGroups(username, groupPrefix)
-	//([]string, error)
 }
