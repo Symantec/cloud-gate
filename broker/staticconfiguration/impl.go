@@ -9,8 +9,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func getClusterSecretsFile(culterSecretsFilename string) ([]string, error) {
-	file, err := os.Open(culterSecretsFilename)
+func getClusterSecretsFile(clusterSecretsFilename string) ([]string, error) {
+	file, err := os.Open(clusterSecretsFilename)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 		config.Base.AccountConfigurationCheckInterval =
 			constants.DefaultAccountConfigurationCheckInterval
 	}
-	//verify oauth2 setup
+	// Verify oauth2 setup
 	if len(config.OpenID.AuthURL) < 1 ||
 		len(config.OpenID.TokenURL) < 1 ||
 		len(config.OpenID.UserinfoURL) < 1 ||
@@ -73,7 +73,7 @@ func LoadVerifyConfigFile(configFilename string) (*StaticConfiguration, error) {
 		return nil, errors.New("invalid openid config")
 	}
 
-	//verify shared secrets
+	// Verify shared secrets
 	if len(config.Base.ClusterSharedSecretFilename) < 0 {
 		return nil, errors.New("missing shared cluster secrets")
 	}
