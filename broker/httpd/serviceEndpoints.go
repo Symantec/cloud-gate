@@ -28,6 +28,7 @@ func (s *Server) consoleAccessHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	w.(*LoggingWriter).SetUsername(authUser)
 
 	err = r.ParseForm()
 	if err != nil {
@@ -121,6 +122,7 @@ func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	w.(*LoggingWriter).SetUsername(authUser)
 	if !(r.Method == "POST" || r.Method == "GET") {
 		s.logger.Printf("Invalid method for getConsole username for %s", authUser)
 		http.Error(w, "error", http.StatusMethodNotAllowed)
@@ -163,6 +165,7 @@ func (s *Server) generateTokenHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	w.(*LoggingWriter).SetUsername(authUser)
 	// TODO: check for valid method
 	err = r.ParseForm()
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
+	stdlog "log"
 	"net"
 	"net/http"
 	"os"
@@ -14,7 +15,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/Symantec/Dominator/lib/log"
+	"github.com/Symantec/Dominator/lib/log/serverlogger"
+	"github.com/Symantec/Dominator/lib/logbuf"
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
@@ -42,6 +47,7 @@ type Server struct {
 	staticConfig *staticconfiguration.StaticConfiguration
 	userInfo     userinfo.UserInfo
 	netClient    *http.Client
+	accessLogger log.DebugLogger
 }
 
 var authCookieName = constants.AuthCookieName
@@ -56,6 +62,18 @@ func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.consoleAccessHandler(w, r)
+}
+
+type httpLogger struct {
+	AccessLogger log.DebugLogger
+}
+
+func (l httpLogger) Log(record LogRecord) {
+	if l.AccessLogger != nil {
+		l.AccessLogger.Printf("%s -  %s [%s] \"%s %s %s\" %d %d\n",
+			record.Ip, record.Username, record.Time, record.Method,
+			record.Uri, record.Protocol, record.Status, record.Size)
+	}
 }
 
 func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
@@ -89,6 +107,14 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	server.authCookie = make(map[string]AuthCookie)
 	go server.performStateCleanup(constants.SecondsBetweenCleanup)
 
+	logBufOptions := logbuf.GetStandardOptions()
+	accessLogDirectory := filepath.Join(logBufOptions.Directory, "access")
+	server.accessLogger = serverlogger.NewWithOptions("access",
+		logbuf.Options{MaxFileSize: 10 << 20,
+			Quota: 100 << 20, MaxBufferLines: 100,
+			Directory: accessLogDirectory},
+		stdlog.LstdFlags)
+
 	// load templates
 	templatesPath := filepath.Join(staticConfig.Base.SharedDataDirectory, "customization_data", "templates")
 	if _, err = os.Stat(templatesPath); err != nil {
@@ -116,6 +142,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 
 	http.HandleFunc("/", server.dashboardRootHandler)
 	http.HandleFunc("/status", server.statusHandler)
+	http.Handle("/prometheus_metrics", promhttp.Handler())
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.mainEntryPointHandler)
 	serviceMux.HandleFunc("/getconsole", server.getConsoleUrlHandler)
@@ -129,13 +156,28 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	//setup openidc auth
 	serviceMux.HandleFunc(constants.Oauth2redirectPath, server.oauth2RedirectPathHandler)
 
-	statusServer := &http.Server{
+	cfg := &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+		},
+	}
+	l := httpLogger{AccessLogger: server.accessLogger}
+	adminSrv := &http.Server{
+		Handler:      NewLoggingHandler(http.DefaultServeMux, l),
+		TLSConfig:    cfg,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
 	go func() {
-		err := statusServer.Serve(statusListener)
+		err := adminSrv.ServeTLS(statusListener,
+			staticConfig.Base.TLSCertFilename,
+			staticConfig.Base.TLSKeyFilename)
 		if err != nil {
 			logger.Fatalf("Failed to start status server, err=%s", err)
 		}
@@ -157,15 +199,15 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		PreferServerCipherSuites: true,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 		},
 		ClientAuth: tls.VerifyClientCertIfGiven,
 		ClientCAs:  clientCACertPool,
 	}
 	serviceServer := &http.Server{
-		Handler:      serviceMux,
+		Handler:      NewLoggingHandler(serviceMux, l),
 		TLSConfig:    tlsConfig,
-		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
