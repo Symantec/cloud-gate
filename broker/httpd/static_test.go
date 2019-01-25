@@ -1,24 +1,16 @@
 package httpd
 
 import (
-	//"encoding/json"
 	"errors"
 	"fmt"
-	//stdlog "log"
 	"net/http"
 	"net/http/httptest"
-	//"os"
 	"testing"
-	//"time"
-	//"github.com/Symantec/Dominator/lib/log/debuglogger"
-	//"golang.org/x/net/context"
-	//"golang.org/x/oauth2"
 )
 
 func checkRequestHandlerCode(req *http.Request, handlerFunc http.HandlerFunc, expectedStatus int) (*httptest.ResponseRecorder, error) {
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(handlerFunc)
-
 	handler.ServeHTTP(rr, req)
 	if status := rr.Code; status != expectedStatus {
 		errStr := fmt.Sprintf("handler returned wrong status code: got %v want %v",
@@ -41,7 +33,7 @@ func TestStaticHandler(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-
+	// check for notfound
 	req, err := http.NewRequest("GET", "/foobar", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -50,5 +42,4 @@ func TestStaticHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }

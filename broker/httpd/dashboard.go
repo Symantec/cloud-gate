@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func (s *Server) rootHandler(w http.ResponseWriter, req *http.Request) {
+func (s *Server) dashboardRootHandler(w http.ResponseWriter, req *http.Request) {
 	writer := bufio.NewWriter(w)
 	defer writer.Flush()
 	fmt.Fprintln(writer, "<title>cloud-gate</title>")

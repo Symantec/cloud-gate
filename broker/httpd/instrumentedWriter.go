@@ -160,7 +160,7 @@ func NewAroundLoggingMiddleware(logger Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// readIp return the real ip when behide nginx or apache
+// readIp returns the real ip when behide nginx or apache
 func (h *LoggingHandler) realIp(r *http.Request) string {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -169,17 +169,15 @@ func (h *LoggingHandler) realIp(r *http.Request) string {
 	if ip != "127.0.0.1" {
 		return ip
 	}
-	// Check if behide nginx or apache
+	// Check if behind nginx or apache
 	xRealIP := r.Header.Get("X-Real-Ip")
 	xForwardedFor := r.Header.Get("X-Forwarded-For")
-
 	for _, address := range strings.Split(xForwardedFor, ",") {
 		address = strings.TrimSpace(address)
 		if address != "" {
 			return address
 		}
 	}
-
 	if xRealIP != "" {
 		return xRealIP
 	}
@@ -194,7 +192,6 @@ func (h *LoggingHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			username = name
 		}
 	}
-
 	startTime := time.Now()
 	writer := &LoggingWriter{
 		ResponseWriter: rw,
@@ -212,17 +209,14 @@ func (h *LoggingHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			RequestHeader: r.Header,
 		},
 	}
-
 	if h.logBefore {
 		writer.SetCustomLogRecord("at", "before")
 		h.logger.Log(writer.logRecord)
 	}
 	h.handler.ServeHTTP(writer, r)
 	finishTime := time.Now()
-
 	writer.logRecord.Time = finishTime.UTC()
 	writer.logRecord.ElapsedTime = finishTime.Sub(startTime)
-
 	if h.logBefore {
 		writer.SetCustomLogRecord("at", "after")
 	}
