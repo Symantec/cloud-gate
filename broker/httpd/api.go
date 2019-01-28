@@ -24,6 +24,7 @@ import (
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
+	"github.com/Symantec/cloud-gate/lib/constants"
 	"github.com/Symantec/cloud-gate/lib/userinfo"
 )
 
@@ -53,27 +54,7 @@ type Server struct {
 	isReady      bool
 }
 
-const secondsBetweenCleanup = 60
-const cookieExpirationHours = 3
-const maxAgeSecondsRedirCookie = 120
-const redirCookieName = "oauth2_redir"
-const oauth2redirectPath = "/oauth2/redirectendpoint"
-
-var authCookieName = "auth_cookie"
-
-func (s *Server) performStateCleanup(secsBetweenCleanup int) {
-	for {
-		s.cookieMutex.Lock()
-		for key, authCookie := range s.authCookie {
-			if authCookie.ExpiresAt.Before(time.Now()) {
-				delete(s.authCookie, key)
-			}
-		}
-		s.cookieMutex.Unlock()
-		time.Sleep(time.Duration(secsBetweenCleanup) * time.Second)
-	}
-
-}
+var authCookieName = constants.AuthCookieName
 
 func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
 	s.logger.Debugf(3, "top of mainEntryPointHandler")
@@ -110,7 +91,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	if err != nil {
 		return nil, err
 	}
-	authCookieName = authCookieName + "_" + authCookieSuffix[0:6]
+	authCookieName = constants.AuthCookieName + "_" + authCookieSuffix[0:6]
 
 	statusListener, err := net.Listen("tcp", fmt.Sprintf(":%d", staticConfig.Base.StatusPort))
 	if err != nil {
@@ -126,7 +107,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		},
 	}
 	server.authCookie = make(map[string]AuthCookie)
-	go server.performStateCleanup(secondsBetweenCleanup)
+	go server.performStateCleanup(constants.SecondsBetweenCleanup)
 
 	logBufOptions := logbuf.GetStandardOptions()
 	accessLogDirectory := filepath.Join(logBufOptions.Directory, "access")
@@ -165,10 +146,10 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		}
 	}
 
-	http.HandleFunc("/", server.rootHandler)
+	http.HandleFunc("/", server.dashboardRootHandler)
 	http.HandleFunc("/status", server.statusHandler)
 	http.HandleFunc("/unseal", server.unsealingHandler)
-	http.HandleFunc(oauth2redirectPath, server.oauth2RedirectPathHandler)
+	http.HandleFunc(constants.Oauth2redirectPath, server.oauth2RedirectPathHandler)
 	http.Handle("/prometheus_metrics", promhttp.Handler())
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.mainEntryPointHandler)
@@ -180,7 +161,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		serviceMux.Handle("/custom_static/", http.StripPrefix("/custom_static/", http.FileServer(http.Dir(customWebResourcesPath))))
 	}
 	//setup openidc auth
-	serviceMux.HandleFunc(oauth2redirectPath, server.oauth2RedirectPathHandler)
+	serviceMux.HandleFunc(constants.Oauth2redirectPath, server.oauth2RedirectPathHandler)
 	server.serviceMux = serviceMux
 
 	var clientCACertPool *x509.CertPool

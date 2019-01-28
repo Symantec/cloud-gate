@@ -1,4 +1,6 @@
 # cloud-gate
+[![Build Status](https://travis-ci.org/Symantec/cloud-gate.svg?branch=master)](https://travis-ci.org/Symantec/cloud-gate)
+
 cloud-gate is a Cloud Authentication Broker. It uses an IDentity Provider (IDP)
 such as [keymaster](https://github.com/Symantec/keymaster) to authenticate users
 and then grants WebUI and API access to accounts and roles in a Cloud

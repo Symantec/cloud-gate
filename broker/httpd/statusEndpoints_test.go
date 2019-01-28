@@ -16,6 +16,7 @@ import (
 
 	"github.com/Symantec/Dominator/lib/log/debuglogger"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
+	"github.com/Symantec/cloud-gate/lib/constants"
 	//"golang.org/x/net/context"
 	//"golang.org/x/oauth2"
 )
@@ -53,7 +54,7 @@ func TestUnsealingHandler(t *testing.T) {
 
 	//now succeed with known cookie
 	cookieVal := "xxxxx"
-	expires := time.Now().Add(time.Hour * cookieExpirationHours)
+	expires := time.Now().Add(time.Hour * constants.CookieExpirationHours)
 	Cookieinfo := AuthCookie{"username", expires}
 	server.authCookie[cookieVal] = Cookieinfo
 	knownCookieReq, err := http.NewRequest("GET", "/unseal", nil)

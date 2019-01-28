@@ -27,7 +27,8 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-const masterAWSAccountName = "broker-master"
+// TODO: these should come in from config
+const masterAWSProfileName = "broker-master"
 const masterRoleName = "CPEBrokerRole"
 
 func (b *Broker) accountIDFromName(accountName string) (string, error) {
@@ -161,7 +162,7 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 		return nil, "", err
 	}
 	if sessionCredentials == nil {
-		return nil, "", errors.New(fmt.Sprintf("No valid profile=%s", profileName))
+		return nil, "", fmt.Errorf("No valid profile=%s", profileName)
 	}
 
 	// This is strange, no error calling?
@@ -170,8 +171,6 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 
 	b.logger.Debugf(2, "stsClient=%v", stsClient)
 
-	//roleName := "CPEBrokerRole"
-	//roleSessionName := "brokermaster"
 	var durationSeconds int64
 	durationSeconds = profileAssumeRoleDurationSeconds
 	accountID, err := b.accountIDFromName(accountName)
@@ -180,7 +179,7 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 	}
 
 	arnRolePrefix := "arn:aws:iam"
-	if region == "us-gov-west-1" {
+	if strings.HasPrefix(region, "us-gov-") {
 		arnRolePrefix = "arn:aws-us-gov:iam"
 	}
 	roleArn := fmt.Sprintf("%s::%s:role/%s", arnRolePrefix, accountID, roleName)
@@ -217,7 +216,7 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 }
 
 func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, error) {
-	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, masterRoleName, "brokermaster")
+	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, masterRoleName, "brokermaster")
 	if err != nil {
 		b.logger.Debugf(0, "cannot assume master role for account %s, err=%s", accountName, err)
 		return nil, err
@@ -263,13 +262,17 @@ func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
 	if ok {
 
 		if cachedEntry.Expiration.After(time.Now()) {
-			b.logger.Debugf(1, "GOT rolesfrom cache")
+			b.logger.Debugf(1, "Got roles from cache")
 			return cachedEntry.Roles, nil
 		}
 
-		// entry is expired
+		// Entry has expired
 		value, err := b.getAWSRolesForAccountNonCached(accountName)
 		if err != nil {
+			// For availability reasons, we prefer to allow users to
+			// continue using the cloudgate-server on expired AWS data
+			// This allow us to continue to operate on transient AWS
+			// errors.
 			b.logger.Printf("Failure gettting non-cached roles, using expired cache")
 			return cachedEntry.Roles, nil
 		}
@@ -293,11 +296,14 @@ func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
 }
 
 func stringIntersectionNoDups(set1, set2 []string) (intersection []string) {
+	stringMap := make(map[string]string, len(set1))
 	for _, v1 := range set1 {
-		for _, v2 := range set2 {
-			if strings.ToLower(v1) == strings.ToLower(v2) {
-				intersection = append(intersection, v1)
-			}
+		stringMap[strings.ToLower(v1)] = v1
+	}
+	for _, v2 := range set2 {
+		v1, ok := stringMap[strings.ToLower(v2)]
+		if ok {
+			intersection = append(intersection, v1)
 		}
 	}
 	return intersection
@@ -404,7 +410,7 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	b.userAllowedCredentialsMutex.Unlock()
 	if ok {
 		if cachedEntry.Expiration.After(time.Now()) {
-			b.logger.Debugf(1, "GOT authz from cache")
+			b.logger.Debugf(1, "Got authz from cache")
 			return cachedEntry.PermittedAccounts, nil
 		}
 		// entry is expired
@@ -432,7 +438,7 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	return value, nil
 }
 
-func (b *Broker) userAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
+func (b *Broker) isUserAllowedToAssumeRole(username string, accountName string, roleName string) (bool, error) {
 	// TODO: could be made more efficient, dont need to know all accounts, just one account.
 	permittedAccount, err := b.getUserAllowedAccounts(username)
 	if err != nil {
@@ -464,7 +470,7 @@ type SessionTokenResponseJSON struct {
 const consoleSessionDurationSeconds = "43000" //3600 * 12
 
 func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string, userName string, issuerURL string) (string, error) {
-	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
+	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, roleName, userName)
 	if err != nil {
 		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
 		// try using a direct role if possible then
@@ -492,7 +498,7 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 
 	federationUrl := "https://signin.aws.amazon.com/federation"
 	awsDestinationURL := "https://console.aws.amazon.com/"
-	if region == "us-gov-west-1" {
+	if strings.HasPrefix(region, "us-gov-") {
 		federationUrl = "https://signin.amazonaws-us-gov.com/federation"
 		awsDestinationURL = "https://console.amazonaws-us-gov.com/"
 	}
@@ -536,16 +542,12 @@ func (b *Broker) getConsoleURLForAccountRole(accountName string, roleName string
 	targetUrl := fmt.Sprintf("%s?Action=login&Issuer=%s&Destination=%s&SigninToken=%s", federationUrl, encodedIssuer, awsDestinationURL, tokenOutput.SigninToken)
 	b.logger.Debugf(1, "targetURL=%s", targetUrl)
 
-	logString := fmt.Sprintf("Console url generated for: %s on account %s role %s", userName, accountName, roleName)
-	b.logger.Printf("%s", logString)
-	if b.syslog != nil {
-		b.syslog.Notice(logString)
-	}
+	b.auditLogger.Printf("Console url generated for: %s on account %s role %s", userName, accountName, roleName)
 	return targetUrl, nil
 }
 
 func (b *Broker) generateTokenCredentials(accountName string, roleName string, userName string) (*broker.AWSCredentialsJSON, error) {
-	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSAccountName, roleName, userName)
+	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, roleName, userName)
 	if err != nil {
 		b.logger.Debugf(1, "cannot assume role for account %s with master account, err=%s ", accountName, err)
 		// try using a direct role if possible then
@@ -556,7 +558,7 @@ func (b *Broker) generateTokenCredentials(accountName string, roleName string, u
 		}
 	}
 	b.logger.Debugf(2, "assume role success for account=%s, roleoutput=%v", accountName, assumeRoleOutput)
-	if region != "us-gov-west-1" {
+	if !strings.HasPrefix(region, "us-gov-") {
 		region = ""
 	}
 	outVal := broker.AWSCredentialsJSON{
@@ -566,11 +568,6 @@ func (b *Broker) generateTokenCredentials(accountName string, roleName string, u
 		Region:       region,
 		Expiration:   time.Now().Add(time.Second * profileAssumeRoleDurationSeconds),
 	}
-	logString := fmt.Sprintf("Token credentials generated for: %s on account %s role %s", userName, accountName, roleName)
-	b.logger.Printf("%s", logString)
-	if b.syslog != nil {
-		b.syslog.Notice(logString)
-	}
-
+	b.auditLogger.Printf("Token credentials generated for: %s on account %s role %s", userName, accountName, roleName)
 	return &outVal, nil
 }
