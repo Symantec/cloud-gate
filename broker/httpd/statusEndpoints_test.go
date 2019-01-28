@@ -1,15 +1,9 @@
 package httpd
 
 import (
-	//"encoding/json"
-	//"errors"
-	//"fmt"
 	"html/template"
-	//"io/ioutil"
 	stdlog "log"
 	"net/http"
-	//"net/http/httptest"
-	//"net/url"
 	"os"
 	"testing"
 	"time"
@@ -17,8 +11,6 @@ import (
 	"github.com/Symantec/Dominator/lib/log/debuglogger"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
 	"github.com/Symantec/cloud-gate/lib/constants"
-	//"golang.org/x/net/context"
-	//"golang.org/x/oauth2"
 )
 
 var test_footer_extra = `{{define "footer_extra"}}{{end}}`
@@ -68,13 +60,4 @@ func TestUnsealingHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-
-		_, err = checkRequestHandlerCode(knownCookieReq, func(w http.ResponseWriter, r *http.Request) {
-			_, err := server.unsealingHandler(w, r)
-			if err != nil {
-				t.Fatal("GetRemoteUsername should have failed")
-			}
-		}, http.StatusFound)
-	*/
 }
