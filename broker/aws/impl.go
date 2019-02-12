@@ -198,17 +198,19 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 	var maxItems int64
 	maxItems = 500
 	listRolesInput := iam.ListRolesInput{MaxItems: &maxItems}
-	listRolesOutput, err := iamClient.ListRoles(&listRolesInput)
-	if err != nil {
-		b.logger.Printf("list profile failed")
-		return nil, err
-	}
-	//TODO, check for truncation!
-	b.logger.Debugf(2, "listrolesoutput =%v", listRolesOutput)
 
 	var roleNames []string
-	for _, role := range listRolesOutput.Roles {
-		roleNames = append(roleNames, *role.RoleName)
+	err := iamClient.ListRolesPages(&listRolesInput,
+		func(listRolesOutput *iam.ListRolesOutput, lastPage bool) bool {
+			b.logger.Debugf(2, "listrolesoutput =%v", listRolesOutput)
+			b.logger.Debugf(2, "loop, lastPage=%s", lastPage)
+			for _, role := range listRolesOutput.Roles {
+				roleNames = append(roleNames, *role.RoleName)
+			}
+			return !lastPage
+		})
+	if err != nil {
+		return nil, err
 	}
 	sort.Strings(roleNames)
 	b.logger.Debugf(1, "roleNames(v =%v)", roleNames)
