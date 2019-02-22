@@ -230,7 +230,6 @@ func (s *Server) StartServicePort() error {
 		for time.Now().Before(timeoutTime) {
 			conn, err := net.DialTimeout("tcp", target, 50*time.Millisecond)
 			if err == nil {
-				s.isReady = true
 				c1 <- nil
 				// We do a TLS handshake in order to avoid error reporting in the log
 				tlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify: true})
@@ -242,6 +241,9 @@ func (s *Server) StartServicePort() error {
 	}()
 	select {
 	case serveErr := <-c1:
+		if err == nil {
+			s.isReady = true
+		}
 		return serveErr
 	case <-time.After(500 * time.Millisecond): //500ms should be enough
 		return errors.New("Timout waiting for server to start")
