@@ -223,14 +223,31 @@ func (s *Server) StartServicePort() error {
 		err := serviceServer.ServeTLS(serviceListener, s.staticConfig.Base.TLSCertFilename, s.staticConfig.Base.TLSKeyFilename)
 		c1 <- err
 	}()
+	go func() {
+		target := fmt.Sprintf("127.0.0.1:%d", s.staticConfig.Base.ServicePort)
+		time.Sleep(20 * time.Millisecond)
+		timeoutTime := time.Now().Add(1 * time.Second)
+		for time.Now().Before(timeoutTime) {
+			conn, err := net.DialTimeout("tcp", target, 50*time.Millisecond)
+			if err == nil {
+				c1 <- nil
+				// We do a TLS handshake in order to avoid error reporting in the log
+				tlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify: true})
+				defer tlsConn.Close()
+				tlsConn.Handshake()
+				return
+			}
+		}
+	}()
 	select {
 	case serveErr := <-c1:
+		if serveErr == nil {
+			s.isReady = true
+		}
 		return serveErr
 	case <-time.After(500 * time.Millisecond): //500ms should be enough
-		s.isReady = true
-		return nil
+		return errors.New("Timout waiting for server to start")
 	}
-	return errors.New("Unepected behavior")
 }
 
 func (s *Server) AddHtmlWriter(htmlWriter HtmlWriter) {
