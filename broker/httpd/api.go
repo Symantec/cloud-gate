@@ -241,7 +241,7 @@ func (s *Server) StartServicePort() error {
 	}()
 	select {
 	case serveErr := <-c1:
-		if err == nil {
+		if serveErr == nil {
 			s.isReady = true
 		}
 		return serveErr
