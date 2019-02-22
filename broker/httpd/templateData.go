@@ -130,6 +130,53 @@ const generateTokaneTemplateText = `
 {{end}}
 `
 
+type unsealingFormPageTemplateData struct {
+	Title        string `json:",omitempty"`
+	AuthUsername string
+	JSSources    []string `json:",omitempty"`
+	ErrorMessage string   `json:",omitempty"`
+}
+
+const unsealingFormPageTemplateText = `
+{{define "unsealingFormPage"}}
+<!DOCTYPE html>
+<html style="height:100%; padding:0;border:0;margin:0">
+    <head>
+        <meta charset="UTF-8">
+        <title>{{.Title}}</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+        <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Droid+Sans" />
+        <link rel="stylesheet" type="text/css" href="/custom_static/customization.css">
+        <link rel="stylesheet" type="text/css" href="/static/common.css">
+    </head>
+    <body>
+    <div style="min-height:100%;position:relative;">
+    {{template "header" .}}
+        <div style="padding-bottom:60px; margin:1em auto; max-width:80em; padding-left:20px ">
+        <h2> CloudGate Unsealing </h2>
+        {{if .ErrorMessage}}
+        <p style="color:red;">{{.ErrorMessage}} </p>
+        {{end}}
+        <p>
+        Go to:  <a href="/status">Status </a>
+        </p>
+        <div>
+
+        <form enctype="application/x-www-form-urlencoded" action="/unseal" method="post">
+            <p>Unsealing Secret: <INPUT TYPE="password" NAME="unsealing_secret" SIZE=18  autocomplete="off"></p>
+            <INPUT TYPE="hidden" NAME="username" VALUE={{.AuthUsername}}>
+            <p><input type="submit" value="Submit" /></p>
+        </form>
+
+        </div>
+        </div>
+    {{template "footer" . }}
+    </div>
+    </body>
+</html>
+{{end}}
+`
+
 const commonCSS = `
 body{
     padding:0;

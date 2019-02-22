@@ -3,6 +3,7 @@ package httpd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -48,12 +49,17 @@ type Server struct {
 	userInfo     userinfo.UserInfo
 	netClient    *http.Client
 	accessLogger log.DebugLogger
+	tlsConfig    *tls.Config
+	serviceMux   *http.ServeMux
+	isReady      bool
 }
 
 var authCookieName = constants.AuthCookieName
 
 func (s *Server) mainEntryPointHandler(w http.ResponseWriter, r *http.Request) {
+	s.logger.Debugf(3, "top of mainEntryPointHandler")
 	if r.URL.Path == "/favicon.ico" {
+		w.Header().Set("Cache-Control", "public, max-age=120")
 		http.Redirect(w, r, "/custom_static/favicon.ico", http.StatusFound)
 		return
 	}
@@ -88,10 +94,6 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	authCookieName = constants.AuthCookieName + "_" + authCookieSuffix[0:6]
 
 	statusListener, err := net.Listen("tcp", fmt.Sprintf(":%d", staticConfig.Base.StatusPort))
-	if err != nil {
-		return nil, err
-	}
-	serviceListener, err := net.Listen("tcp", fmt.Sprintf(":%d", staticConfig.Base.ServicePort))
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +133,12 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 		}
 	}
 
-	// Load the other built in templates
-	extraTemplates := []string{footerTemplateText, consoleAccessTemplateText, generateTokaneTemplateText, headerTemplateText}
+	/// Load the oter built in templates
+	extraTemplates := []string{footerTemplateText,
+		consoleAccessTemplateText,
+		generateTokaneTemplateText,
+		unsealingFormPageTemplateText,
+		headerTemplateText}
 	for _, templateString := range extraTemplates {
 		_, err = server.htmlTemplate.Parse(templateString)
 		if err != nil {
@@ -142,6 +148,8 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 
 	http.HandleFunc("/", server.dashboardRootHandler)
 	http.HandleFunc("/status", server.statusHandler)
+	http.HandleFunc("/unseal", server.unsealingHandler)
+	http.HandleFunc(constants.Oauth2redirectPath, server.oauth2RedirectPathHandler)
 	http.Handle("/prometheus_metrics", promhttp.Handler())
 	serviceMux := http.NewServeMux()
 	serviceMux.HandleFunc("/", server.mainEntryPointHandler)
@@ -152,11 +160,21 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	if _, err = os.Stat(customWebResourcesPath); err == nil {
 		serviceMux.Handle("/custom_static/", http.StripPrefix("/custom_static/", http.FileServer(http.Dir(customWebResourcesPath))))
 	}
-
 	//setup openidc auth
 	serviceMux.HandleFunc(constants.Oauth2redirectPath, server.oauth2RedirectPathHandler)
+	server.serviceMux = serviceMux
 
-	cfg := &tls.Config{
+	var clientCACertPool *x509.CertPool
+	if len(staticConfig.Base.ClientCAFilename) > 0 {
+		clientCACertPool = x509.NewCertPool()
+		caCert, err := ioutil.ReadFile(staticConfig.Base.ClientCAFilename)
+		if err != nil {
+			logger.Fatalf("cannot read clientCA file err=%s", err)
+		}
+		clientCACertPool.AppendCertsFromPEM(caCert)
+	}
+
+	server.tlsConfig = &tls.Config{
 		MinVersion:               tls.VersionTLS12,
 		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
 		PreferServerCipherSuites: true,
@@ -165,11 +183,13 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 		},
+		ClientAuth: tls.VerifyClientCertIfGiven,
+		ClientCAs:  clientCACertPool,
 	}
 	l := httpLogger{AccessLogger: server.accessLogger}
 	adminSrv := &http.Server{
 		Handler:      NewLoggingHandler(http.DefaultServeMux, l),
-		TLSConfig:    cfg,
+		TLSConfig:    server.tlsConfig,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
@@ -182,43 +202,52 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 			logger.Fatalf("Failed to start status server, err=%s", err)
 		}
 	}()
+	return server, nil
+}
 
-	var clientCACertPool *x509.CertPool
-	if len(staticConfig.Base.ClientCAFilename) > 0 {
-		clientCACertPool = x509.NewCertPool()
-		caCert, err := ioutil.ReadFile(staticConfig.Base.ClientCAFilename)
-		if err != nil {
-			logger.Fatalf("cannot read clientCA file err=%s", err)
-		}
-		clientCACertPool.AppendCertsFromPEM(caCert)
+func (s *Server) StartServicePort() error {
+	serviceListener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.staticConfig.Base.ServicePort))
+	if err != nil {
+		return err
 	}
-
-	tlsConfig := &tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-		PreferServerCipherSuites: true,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-		},
-		ClientAuth: tls.VerifyClientCertIfGiven,
-		ClientCAs:  clientCACertPool,
-	}
+	l := httpLogger{AccessLogger: s.accessLogger}
 	serviceServer := &http.Server{
-		Handler:      NewLoggingHandler(serviceMux, l),
-		TLSConfig:    tlsConfig,
+		Handler:      NewLoggingHandler(s.serviceMux, l),
+		TLSConfig:    s.tlsConfig,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
+	c1 := make(chan error, 1)
 	go func() {
-		err := serviceServer.ServeTLS(serviceListener, staticConfig.Base.TLSCertFilename, staticConfig.Base.TLSKeyFilename)
-		if err != nil {
-			logger.Fatalf("Failed to start service server, err=%s", err)
+		err := serviceServer.ServeTLS(serviceListener, s.staticConfig.Base.TLSCertFilename, s.staticConfig.Base.TLSKeyFilename)
+		c1 <- err
+	}()
+	go func() {
+		target := fmt.Sprintf("127.0.0.1:%d", s.staticConfig.Base.ServicePort)
+		time.Sleep(20 * time.Millisecond)
+		timeoutTime := time.Now().Add(1 * time.Second)
+		for time.Now().Before(timeoutTime) {
+			conn, err := net.DialTimeout("tcp", target, 50*time.Millisecond)
+			if err == nil {
+				c1 <- nil
+				// We do a TLS handshake in order to avoid error reporting in the log
+				tlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify: true})
+				defer tlsConn.Close()
+				tlsConn.Handshake()
+				return
+			}
 		}
 	}()
-	return server, nil
+	select {
+	case serveErr := <-c1:
+		if serveErr == nil {
+			s.isReady = true
+		}
+		return serveErr
+	case <-time.After(500 * time.Millisecond): //500ms should be enough
+		return errors.New("Timout waiting for server to start")
+	}
 }
 
 func (s *Server) AddHtmlWriter(htmlWriter HtmlWriter) {

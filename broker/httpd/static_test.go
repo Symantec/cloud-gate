@@ -10,7 +10,8 @@ import (
 
 func checkRequestHandlerCode(req *http.Request, handlerFunc http.HandlerFunc, expectedStatus int) (*httptest.ResponseRecorder, error) {
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(handlerFunc)
+	l := httpLogger{}
+	handler := NewLoggingHandler(http.HandlerFunc(handlerFunc), l)
 	handler.ServeHTTP(rr, req)
 	if status := rr.Code; status != expectedStatus {
 		errStr := fmt.Sprintf("handler returned wrong status code: got %v want %v",

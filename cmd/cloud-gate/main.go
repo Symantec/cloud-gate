@@ -71,12 +71,38 @@ func main() {
 		"aws": aws.New(userInfo, staticConfig.Base.AWSCredentialsFilename,
 			logger, auditLogger),
 	}
+	for brokerName, broker := range brokers {
+		err = broker.LoadCredentialsFile()
+		if err != nil {
+			logger.Fatalf("Could not load broker for %s: %s\n", brokerName, err)
+		}
+	}
 
 	webServer, err := httpd.StartServer(staticConfig, userInfo, brokers, logger)
 	if err != nil {
 		logger.Fatalf("Unable to create http server: %s\n", err)
 	}
 	webServer.AddHtmlWriter(logger)
+
+	go func() {
+		logger.Debugf(1, "starting wait for unsealing")
+		//wait for all brokers to be unsealed
+		for _, broker := range brokers {
+			c, err := broker.GetIsUnsealedChannel()
+			if err != nil {
+				logger.Fatalf("cannot get unsealing channel%s\n", err)
+			}
+			isUnsealed := <-c
+			if isUnsealed != nil {
+				logger.Fatalf("broker unsealing error%s\n", err)
+			}
+		}
+		logger.Debugf(1, "Unsealing done, starting service port")
+		err = webServer.StartServicePort()
+		if err != nil {
+			logger.Fatalf("Unable to start Service Port: %s\n", err)
+		}
+	}()
 	for config := range configChannel {
 		logger.Println("Received new configuration")
 		if err := webServer.UpdateConfiguration(config); err != nil {

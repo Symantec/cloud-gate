@@ -1,6 +1,6 @@
 Name:           cloud-gate
-Version:        0.7.2
-Release:        2%{?dist}
+Version:        0.7.4
+Release:        1%{?dist}
 Summary:        Access broker for clouds
 
 #Group:

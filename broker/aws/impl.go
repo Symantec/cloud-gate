@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
 
 	"github.com/Symantec/cloud-gate/broker"
 
@@ -48,25 +52,104 @@ func (b *Broker) accountHumanNameFromName(accountName string) (string, error) {
 	return "", errors.New("accountNAme not found")
 }
 
+func (b *Broker) processNewUnsealingSecret(secret string) (ready bool, err error) {
+	// if already loaded then fast quit
+	//probably add some mutex here
+	if len(b.profileCredentials) > 0 {
+		return true, nil
+	}
+
+	decbuf := bytes.NewBuffer(b.rawCredentialsFile)
+
+	armorBlock, err := armor.Decode(decbuf)
+	if err != nil {
+		b.logger.Printf("Cannot decode armored file")
+		return false, err
+	}
+	password := []byte(secret)
+	failed := false
+	prompt := func(keys []openpgp.Key, symmetric bool) ([]byte, error) {
+		// If the given passphrase isn't correct, the function will be called again, forever.
+		// This method will fail fast.
+		// Ref: https://godoc.org/golang.org/x/crypto/openpgp#PromptFunction
+		if failed {
+			return nil, errors.New("decryption failed")
+		}
+		failed = true
+		return password, nil
+	}
+	md, err := openpgp.ReadMessage(armorBlock.Body, nil, prompt, nil)
+	if err != nil {
+		b.logger.Printf("cannot read message")
+		return false, err
+	}
+
+	plaintextBytes, err := ioutil.ReadAll(md.UnverifiedBody)
+	if err != nil {
+		return false, err
+	}
+
+	err = b.loadCredentialsFrombytes(plaintextBytes)
+	if err != nil {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (b *Broker) loadCredentialsFile() (err error) {
+	b.rawCredentialsFile, err = ioutil.ReadFile(b.credentialsFilename)
+	if err != nil {
+		return nil
+	}
+	fileAsString := string(b.rawCredentialsFile[:])
+	if strings.HasPrefix(fileAsString, "-----BEGIN PGP MESSAGE-----") {
+		return nil
+	}
+	return b.loadCredentialsFrombytes(b.rawCredentialsFile)
+}
+
+func (b *Broker) loadCredentialsFrombytes(credentials []byte) error {
+	cfg, err := ini.Load(credentials)
+	if err != nil {
+		return err
+	}
+	defaultRegion := "us-west-2"
+	sections := cfg.SectionStrings()
+	for _, profileName := range sections {
+		accessKeyID := cfg.Section(profileName).Key("aws_access_key_id").String()
+		secretAccessKey := cfg.Section(profileName).Key("aws_secret_access_key").String()
+		if len(accessKeyID) < 3 || len(secretAccessKey) < 3 {
+			continue
+		}
+		region := cfg.Section(profileName).Key("region").String()
+		if region == "" {
+			region = defaultRegion
+		}
+
+		entry := awsProfileEntry{AccessKeyID: accessKeyID,
+			SecretAccessKey: secretAccessKey,
+			Region:          region}
+
+		b.profileCredentials[profileName] = entry
+
+	}
+	if len(b.profileCredentials) < 1 {
+		return errors.New("nothing loaded")
+	}
+	//it is now unsealed
+	b.isUnsealedChannel <- nil
+	return nil
+}
+
 // Returns a aws static credentials and region name, returns nil if credentials cannot be found
 func (b *Broker) getCredentialsFromProfile(profileName string) (*credentials.Credentials, string, error) {
-	cfg, err := ini.Load(b.credentialsFilename)
-	if err != nil {
-		return nil, "", err
+	profileEntry, ok := b.profileCredentials[profileName]
+	if !ok {
+		return nil, "", errors.New("invalid credentials name")
 	}
-	accessKeyID := cfg.Section(profileName).Key("aws_access_key_id").String()
-	secretAccessKey := cfg.Section(profileName).Key("aws_secret_access_key").String()
-	b.logger.Debugf(1, "masterAccessKeyID=%s", accessKeyID)
-	if len(accessKeyID) < 3 || len(secretAccessKey) < 3 {
-		b.logger.Printf("No valid profile=%s", profileName)
-		return nil, "", nil
-	}
-	region := cfg.Section(profileName).Key("region").String()
-	if region == "" {
-		region = "us-west-2"
-	}
-	sessionCredentials := credentials.NewStaticCredentials(accessKeyID, secretAccessKey, "")
-	return sessionCredentials, region, nil
+	sessionCredentials := credentials.NewStaticCredentials(profileEntry.AccessKeyID, profileEntry.SecretAccessKey, "")
+	return sessionCredentials, profileEntry.Region, nil
 }
 
 const profileAssumeRoleDurationSeconds = 3600

@@ -21,6 +21,12 @@ type accountRoleCacheEntry struct {
 	Expiration time.Time
 }
 
+type awsProfileEntry struct {
+	AccessKeyID     string
+	SecretAccessKey string
+	Region          string
+}
+
 type Broker struct {
 	config                      *configuration.Configuration
 	userInfo                    userinfo.UserInfo
@@ -31,6 +37,9 @@ type Broker struct {
 	userAllowedCredentialsMutex sync.Mutex
 	accountRoleCache            map[string]accountRoleCacheEntry
 	accountRoleMutex            sync.Mutex
+	isUnsealedChannel           chan error
+	profileCredentials          map[string]awsProfileEntry
+	rawCredentialsFile          []byte
 }
 
 func New(userInfo userinfo.UserInfo,
@@ -42,6 +51,8 @@ func New(userInfo userinfo.UserInfo,
 		auditLogger:                 auditLogger,
 		userAllowedCredentialsCache: make(map[string]userAllowedCredentialsCacheEntry),
 		accountRoleCache:            make(map[string]accountRoleCacheEntry),
+		isUnsealedChannel:           make(chan error, 1),
+		profileCredentials:          make(map[string]awsProfileEntry),
 	}
 }
 
@@ -69,4 +80,16 @@ func (b *Broker) GetConsoleURLForAccountRole(accountName string, roleName string
 
 func (b *Broker) GenerateTokenCredentials(accountName string, roleName string, userName string) (*broker.AWSCredentialsJSON, error) {
 	return b.generateTokenCredentials(accountName, roleName, userName)
+}
+
+func (b *Broker) ProcessNewUnsealingSecret(secret string) (ready bool, err error) {
+	return b.processNewUnsealingSecret(secret)
+}
+
+func (b *Broker) GetIsUnsealedChannel() (<-chan error, error) {
+	return b.isUnsealedChannel, nil
+}
+
+func (b *Broker) LoadCredentialsFile() error {
+	return b.loadCredentialsFile()
 }
