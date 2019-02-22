@@ -81,7 +81,6 @@ func (b *Broker) processNewUnsealingSecret(secret string) (ready bool, err error
 	md, err := openpgp.ReadMessage(armorBlock.Body, nil, prompt, nil)
 	if err != nil {
 		b.logger.Printf("cannot read message")
-		//state.writeFailureResponse(w, r, http.StatusBadRequest, "Invalid Unlocking key")
 		return false, err
 	}
 
@@ -105,7 +104,6 @@ func (b *Broker) loadCredentialsFile() (err error) {
 	}
 	fileAsString := string(b.rawCredentialsFile[:])
 	if strings.HasPrefix(fileAsString, "-----BEGIN PGP MESSAGE-----") {
-		//err = errors.New("Have a client CA but the CA file does NOT look like and PGP file")
 		return nil
 	}
 	return b.loadCredentialsFrombytes(b.rawCredentialsFile)

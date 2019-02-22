@@ -39,7 +39,6 @@ func (s *Server) unsealingHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		//state.writeFailureResponse(w, r, http.StatusMethodNotAllowed, "")
 		http.Error(w, "Error parsing form", http.StatusMethodNotAllowed)
 		return
 	}
