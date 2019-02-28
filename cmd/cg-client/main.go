@@ -48,12 +48,16 @@ var (
 	lowerCaseProfileName = flag.Bool("lowerCaseProfileName", true, "ask also for admin roles")
 	configFilename       = flag.String("configFile", filepath.Join(getUserHomeDir(), ".config", "cloud-gate", "config.yml"), "An Ini file with credentials")
 	oldBotoCompat        = flag.Bool("oldBotoCompat", false, "add aws_security_token for OLD boto installations (not recommended)")
+	includeRoleREFilter  = flag.String("includeRoleREFilter", "", "Positive RE filter that role/account MUST match")
+	excludeRoleREFilter  = flag.String("excludeRoleREFilter", "", "Negative RE filter. Acount/Role values matching will not be generated")
 )
 
 type AppConfigFile struct {
 	BaseURL              string `yaml:"base_url"`
 	OutputProfilePrefix  string `yaml:"output_profile_prefix"`
 	LowerCaseProfileName bool   `yaml:"lower_case_profile_name"`
+	IncludeRoleREFilter  string `yaml:"include_role_re_filter"`
+	ExcludeRoleREFilter  string `yaml:"exclude_role_re_filter"`
 }
 
 type cloudAccountInfo struct {
@@ -257,7 +261,8 @@ func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, erro
 
 func getCerts(cert tls.Certificate, baseUrl string,
 	credentialFilename string, askAdminRoles bool,
-	outputProfilePrefix string, lowerCaseProfileName bool) error {
+	outputProfilePrefix string, lowerCaseProfileName bool,
+	includeRoleRE *regexp.Regexp, excludeRoleRE *regexp.Regexp) error {
 
 	credFile, err := setupCredentialFile(credentialFilename)
 	if err != nil {
@@ -281,6 +286,17 @@ func getCerts(cert tls.Certificate, baseUrl string,
 			}
 			if err != nil {
 				log.Fatalf("error on regexp=%s", err)
+			}
+			computedName := account.Name + "-" + roleName
+			if includeRoleRE != nil {
+				if !includeRoleRE.Match([]byte(computedName)) {
+					continue
+				}
+			}
+			if excludeRoleRE != nil {
+				if excludeRoleRE.Match([]byte(computedName)) {
+					continue
+				}
 			}
 			err = getAndUpdateCreds(client, baseUrl,
 				account.Name, roleName, credFile,
@@ -362,6 +378,27 @@ func main() {
 		config.BaseURL = *baseURL
 	}
 
+	var includeRoleRE *regexp.Regexp
+	if *includeRoleREFilter != "" {
+		config.IncludeRoleREFilter = *includeRoleREFilter
+	}
+	if config.IncludeRoleREFilter != "" {
+		includeRoleRE, err = regexp.Compile(config.IncludeRoleREFilter)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	var excludeRoleRE *regexp.Regexp
+	if *excludeRoleREFilter != "" {
+		config.ExcludeRoleREFilter = *excludeRoleREFilter
+	}
+	if config.ExcludeRoleREFilter != "" {
+		excludeRoleRE, err = regexp.Compile(config.ExcludeRoleREFilter)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	log.Printf("Configuration Loaded")
 	certNotAfter, err := getCertExpirationTime(*certFilename)
 	if err != nil {
@@ -377,7 +414,8 @@ func main() {
 			log.Fatal(err)
 		}
 		err = getCerts(cert, config.BaseURL, *crededentialFilename,
-			*askAdminRoles, config.OutputProfilePrefix, *lowerCaseProfileName)
+			*askAdminRoles, config.OutputProfilePrefix, *lowerCaseProfileName,
+			includeRoleRE, excludeRoleRE)
 		if err != nil {
 			log.Printf("err=%s", err)
 			log.Printf("Failure getting certs, retrying in (%s)", failureSleepDuration)
