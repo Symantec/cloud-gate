@@ -16,6 +16,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -23,12 +24,16 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const defaultVersionNumber = "No version provided"
+const userAgentAppName = "cloud_gate_cli"
+
 var (
 	// Must be a global variable in the data segment so that the build
 	// process can inject the version number on the fly when building the
 	// binary. Use only from the Usage() function.
-	Version        = "No version provided"
-	DefaultBaseURL = ""
+	Version         = defaultVersionNumber
+	DefaultBaseURL  = ""
+	userAgentString = userAgentAppName
 )
 
 const defaultOutputProfilePrefix = "saml-"
@@ -120,17 +125,23 @@ func getAndUpdateCreds(client *http.Client, baseUrl, accountName, roleName strin
 	lowerCaseProfileName bool) error {
 	log.Printf("account=%s, role=%s", accountName, roleName)
 
-	resp, err := client.PostForm(baseUrl+"/generatetoken",
-		url.Values{"accountName": {accountName}, "roleName": {roleName}})
+	values := url.Values{"accountName": {accountName}, "roleName": {roleName}}
+	req, err := http.NewRequest("POST", baseUrl+"/generatetoken", strings.NewReader(values.Encode()))
 	if err != nil {
-		log.Fatal(err)
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", userAgentString)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
 	}
 	defer resp.Body.Close()
 
 	// Dump response
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if resp.StatusCode >= 300 {
 		return errors.New(badReturnErrText)
@@ -214,7 +225,12 @@ func setupHttpClient(cert tls.Certificate) (*http.Client, error) {
 
 func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, error) {
 	// Do GET something
-	resp, err := client.Get(baseUrl)
+	req, err := http.NewRequest("GET", baseUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgentString)
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("failed to connect err=%s transport=%+v ", err, client.Transport)
 		if resp != nil {
@@ -315,6 +331,15 @@ func getUserHomeDir() (homeDir string) {
 	return
 }
 
+func computeUserAgent() {
+	uaVersion := Version
+	if Version == defaultVersionNumber {
+		uaVersion = "0.0"
+	}
+
+	userAgentString = fmt.Sprintf("%s/%s (%s %s)", userAgentAppName, uaVersion, runtime.GOOS, runtime.GOARCH)
+}
+
 func usage() {
 	fmt.Fprintf(
 		os.Stderr, "Usage of %s (version %s):\n", os.Args[0], Version)
@@ -324,6 +349,7 @@ func usage() {
 func main() {
 	flag.Usage = usage
 	flag.Parse()
+	computeUserAgent()
 
 	config, err := loadVerifyConfigFile(*configFilename)
 	if err != nil {
