@@ -274,7 +274,6 @@ func getCerts(cert tls.Certificate, baseUrl string,
 			computedName := account.Name + "-" + roleName
 			if includeRoleRE != nil {
 				if !includeRoleRE.Match([]byte(computedName)) {
-					//log.Printf("Skipping %s for includeRe", computedName)
 					continue
 				}
 			}
