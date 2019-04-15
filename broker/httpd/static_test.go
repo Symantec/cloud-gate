@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/Symantec/keymaster/lib/instrumentedwriter"
 )
 
 func checkRequestHandlerCode(req *http.Request, handlerFunc http.HandlerFunc, expectedStatus int) (*httptest.ResponseRecorder, error) {
 	rr := httptest.NewRecorder()
 	l := httpLogger{}
-	handler := NewLoggingHandler(http.HandlerFunc(handlerFunc), l)
+	handler := instrumentedwriter.NewLoggingHandler(http.HandlerFunc(handlerFunc), l)
 	handler.ServeHTTP(rr, req)
 	if status := rr.Code; status != expectedStatus {
 		errStr := fmt.Sprintf("handler returned wrong status code: got %v want %v",

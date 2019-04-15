@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"net/http"
+
+	"github.com/Symantec/keymaster/lib/instrumentedwriter"
 )
 
 func (s *Server) displayUnsealForm(w http.ResponseWriter, r *http.Request, authUser string) {
@@ -24,7 +26,7 @@ func (s *Server) unsealingHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	w.(*LoggingWriter).SetUsername(authUser)
+	w.(*instrumentedwriter.LoggingWriter).SetUsername(authUser)
 	switch r.Method {
 	case "GET":
 		s.logger.Debugf(3, "Got client GET connection")
