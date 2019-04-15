@@ -83,20 +83,6 @@ func (l httpLogger) Log(record instrumentedwriter.LogRecord) {
 	}
 }
 
-/*
-type httpLogger struct {
-	AccessLogger log.DebugLogger
-}
-
-func (l httpLogger) Log(record LogRecord) {
-	if l.AccessLogger != nil {
-		l.AccessLogger.Printf("%s -  %s [%s] \"%s %s %s\" %d %d  \"%s\"\n",
-			record.Ip, record.Username, record.Time, record.Method,
-			record.Uri, record.Protocol, record.Status, record.Size, record.UserAgent)
-	}
-}
-*/
-
 func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	userInfo userinfo.UserInfo,
 	brokers map[string]broker.Broker,
