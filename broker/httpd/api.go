@@ -26,6 +26,7 @@ import (
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
 	"github.com/Symantec/cloud-gate/lib/constants"
 	"github.com/Symantec/cloud-gate/lib/userinfo"
+	"github.com/Symantec/keymaster/lib/instrumentedwriter"
 )
 
 type HtmlWriter interface {
@@ -74,11 +75,11 @@ type httpLogger struct {
 	AccessLogger log.DebugLogger
 }
 
-func (l httpLogger) Log(record LogRecord) {
+func (l httpLogger) Log(record instrumentedwriter.LogRecord) {
 	if l.AccessLogger != nil {
-		l.AccessLogger.Printf("%s -  %s [%s] \"%s %s %s\" %d %d\n",
+		l.AccessLogger.Printf("%s -  %s [%s] \"%s %s %s\" %d %d \"%s\"\n",
 			record.Ip, record.Username, record.Time, record.Method,
-			record.Uri, record.Protocol, record.Status, record.Size)
+			record.Uri, record.Protocol, record.Status, record.Size, record.UserAgent)
 	}
 }
 
@@ -188,7 +189,7 @@ func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	}
 	l := httpLogger{AccessLogger: server.accessLogger}
 	adminSrv := &http.Server{
-		Handler:      NewLoggingHandler(http.DefaultServeMux, l),
+		Handler:      instrumentedwriter.NewLoggingHandler(http.DefaultServeMux, l),
 		TLSConfig:    server.tlsConfig,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -212,7 +213,7 @@ func (s *Server) StartServicePort() error {
 	}
 	l := httpLogger{AccessLogger: s.accessLogger}
 	serviceServer := &http.Server{
-		Handler:      NewLoggingHandler(s.serviceMux, l),
+		Handler:      instrumentedwriter.NewLoggingHandler(s.serviceMux, l),
 		TLSConfig:    s.tlsConfig,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
