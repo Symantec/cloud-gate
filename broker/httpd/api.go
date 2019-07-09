@@ -82,6 +82,10 @@ func (l httpLogger) Log(record LogRecord) {
 	}
 }
 
+func (s *Server) GetIsReady() bool {
+	return s.isReady
+}
+
 func StartServer(staticConfig *staticconfiguration.StaticConfiguration,
 	userInfo userinfo.UserInfo,
 	brokers map[string]broker.Broker,
