@@ -147,6 +147,11 @@ func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
 	roleName := validatedParams["roleName"][0]
 
 	ok, err := s.brokers["aws"].IsUserAllowedToAssumeRole(authUser, accountName, roleName)
+	if err != nil {
+		s.logger.Printf("Failure checking user permissions: %s", err)
+		http.Error(w, "Error getting user permissions.", http.StatusInternalServerError)
+		return
+	}
 	if !ok {
 		http.Error(w, "Invalid account or Role", http.StatusForbidden)
 		return
@@ -154,8 +159,8 @@ func (s *Server) getConsoleUrlHandler(w http.ResponseWriter, r *http.Request) {
 	issuerURL := fmt.Sprintf("https://%s%s", r.Host, r.URL.String())
 	destUrl, err := s.brokers["aws"].GetConsoleURLForAccountRole(accountName, roleName, authUser, issuerURL)
 	if err != nil {
-		s.logger.Printf("Failed to execute %v", err)
-		http.Error(w, "error", http.StatusInternalServerError)
+		s.logger.Printf("Failed to generate console for account: %s role: %s user: %s, err: %v", accountName, roleName, authUser, err)
+		http.Error(w, "Failed to Generate Console URL for account/role (Missing/invalid trust?)", http.StatusInternalServerError)
 		return
 
 	}
@@ -186,14 +191,19 @@ func (s *Server) generateTokenHandler(w http.ResponseWriter, r *http.Request) {
 	roleName := validatedParams["roleName"][0]
 
 	ok, err := s.brokers["aws"].IsUserAllowedToAssumeRole(authUser, accountName, roleName)
+	if err != nil {
+		s.logger.Printf("Failure checking user permissions: %s", err)
+		http.Error(w, "Error getting user permissions.", http.StatusInternalServerError)
+		return
+	}
 	if !ok {
 		http.Error(w, "Invalid account or Role", http.StatusForbidden)
 		return
 	}
 	tempCredentials, err := s.brokers["aws"].GenerateTokenCredentials(accountName, roleName, authUser)
 	if err != nil {
-		s.logger.Printf("Failed to get token %v", err)
-		http.Error(w, "error", http.StatusInternalServerError)
+		s.logger.Printf("Failed to generate Token for account: %s role: %s user: %s, err: %v", accountName, roleName, authUser, err)
+		http.Error(w, "Failed to Generate Token for account/role (Missing/invalid trust?)", http.StatusInternalServerError)
 		return
 
 	}

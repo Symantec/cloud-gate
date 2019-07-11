@@ -2,13 +2,44 @@ package ldap
 
 import (
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/Symantec/Dominator/lib/log"
 	"github.com/Symantec/keymaster/lib/authutil"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+var (
+	dependencyLatency = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name:       "cloudgate_ldap_userinfo_check_duration_seconds",
+			Help:       "LDAP Dependency latency",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
+		[]string{"target"},
+	)
+	userinfoLDAPAttempt = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "cloudgate_ldap_userinfo_attempt_counter",
+			Help: "Attempts to get userinfo from ldap",
+		},
+	)
+	userinfoLDAPSuccess = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "cloudgate_ldap_userinfo_success_counter",
+			Help: "Success count when getting userinfo from ldap",
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(dependencyLatency)
+	prometheus.MustRegister(userinfoLDAPAttempt)
+	prometheus.MustRegister(userinfoLDAPSuccess)
+}
 
 func newUserInfo(urllist []string, bindUsername string, bindPassword string,
 	userSearchFilter string, userSearchBaseDNs []string, timeoutSecs uint, rootCAs *x509.CertPool, logger log.DebugLogger) (
@@ -56,7 +87,10 @@ func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) ([]st
 	ldapSuccess := false
 	var userAttributes map[string][]string
 	var err error
+	userinfoLDAPAttempt.Inc()
 	for _, ldapUrl := range uinfo.ldapURL {
+		targetName := strings.ToLower(ldapUrl.Hostname())
+		startTime := time.Now()
 		userAttributes, err = authutil.GetLDAPUserAttributes(*ldapUrl, uinfo.bindUsername, uinfo.bindPassword,
 			uinfo.timeoutSecs, uinfo.rootCAs,
 			username,
@@ -65,12 +99,14 @@ func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) ([]st
 		if err != nil {
 			continue
 		}
+		dependencyLatency.WithLabelValues(targetName).Observe(time.Now().Sub(startTime).Seconds())
 		ldapSuccess = true
 		break
 	}
 	if !ldapSuccess {
-		return nil, errors.New("could not contact any configured LDAP endpoint")
+		return nil, fmt.Errorf("Could not contact any configured LDAP endpoint. Last Err: %s", err)
 	}
+	userinfoLDAPSuccess.Inc()
 	groupPrefixString := ""
 	if groupPrefix != nil {
 		groupPrefixString = *groupPrefix

@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/Symantec/Dominator/lib/log/debuglogger"
 	"github.com/Symantec/Dominator/lib/log/serverlogger"
 	"github.com/Symantec/Dominator/lib/log/teelogger"
@@ -83,6 +85,20 @@ func main() {
 		logger.Fatalf("Unable to create http server: %s\n", err)
 	}
 	webServer.AddHtmlWriter(logger)
+
+	isReadyMetric := prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name: "cloudgate_isReady",
+			Help: "Cloudgate is unsealed and ready to accept connections",
+		},
+		func() float64 {
+			if webServer.GetIsReady() {
+				return 1.0
+			}
+			return 0.0
+		},
+	)
+	prometheus.MustRegister(isReadyMetric)
 
 	go func() {
 		logger.Debugf(1, "starting wait for unsealing")
