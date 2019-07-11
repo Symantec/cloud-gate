@@ -428,6 +428,7 @@ func (b *Broker) getUserAllowedAccounts(username string) ([]broker.PermittedAcco
 	}
 	value, err := b.getUserAllowedAccountsNonCached(username)
 	if err != nil {
+		b.logger.Printf("getUserAllowedAccounts: Failure gettting userinfo for non-cached user: %s. Err: %s", username, err)
 		return value, err
 	}
 	cachedEntry.PermittedAccounts = value

@@ -24,13 +24,13 @@ var (
 	userinfoLDAPAttempt = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "cloudgate_ldap_userinfo_attempt_counter",
-			Help: "test help",
+			Help: "Attempts to get userinfo from ldap",
 		},
 	)
 	userinfoLDAPSuccess = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "cloudgate_ldap_userinfo_success_counter",
-			Help: "test help",
+			Help: "Success count when getting userinfo from ldap",
 		},
 	)
 )

@@ -86,11 +86,10 @@ func main() {
 	}
 	webServer.AddHtmlWriter(logger)
 
-	//
 	isReadyMetric := prometheus.NewGaugeFunc(
 		prometheus.GaugeOpts{
 			Name: "cloudgate_isReady",
-			Help: "coudgate is unsealed and ready to accept connections",
+			Help: "Cloudgate is unsealed and ready to accept connections",
 		},
 		func() float64 {
 			if webServer.GetIsReady() {
