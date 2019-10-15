@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -158,9 +159,26 @@ func getUsernameFromUserinfo(userInfo openidConnectUserInfo) string {
 	return username
 }
 
+const maxPostRetryCount = 3
+
+// In general Post Requests are NOT idempotent, this the golang library does not try to do
+// a retry for POSTS. It is also documented that when a keepalive connection exists the connection
+// might get closed before the netClient internal Do operation. When this happens we get an
+// unexpected EOF message. Since all of our uses por gettingPost bytes are idempotent we
+// implement retry logic on only this case.
 func (s *Server) getBytesFromSuccessfullPost(url string, data url.Values) ([]byte, error) {
+	return s.getBytesFromSuccessfullPostWithRetries(url, data, maxPostRetryCount)
+}
+
+func (s *Server) getBytesFromSuccessfullPostWithRetries(url string, data url.Values, maxRetries int) ([]byte, error) {
+	if maxRetries <= 0 {
+		return nil, fmt.Errorf("Too many reties for getBytesFromSuccessfullPostWithRetries, url=%s", url)
+	}
 	response, err := s.netClient.PostForm(url, data)
 	if err != nil {
+		if strings.Contains(err.Error(), "unexpected EOF") {
+			return s.getBytesFromSuccessfullPostWithRetries(url, data, maxRetries-1)
+		}
 		s.logger.Debugf(1, "client post error err: %s\n", err)
 		return nil, err
 	}
