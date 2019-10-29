@@ -1,0 +1,8 @@
+aws:
+   group_prefix: "DELEGATED-AWS-IAM-"
+   account:
+      - name: "base-infosec"
+        account_id: "123456789"
+      - name: "core-prod-01"
+        account_id: "234567890"
+        display_name: "Core Prod 01"
