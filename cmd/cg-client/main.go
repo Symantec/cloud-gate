@@ -262,7 +262,6 @@ func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, erro
 		log.Fatal(err)
 	}
 	loggerPrintf(2, "accountList=%v", accountList)
-	//log.Printf("%+v", accountList)
 	return &accountList, nil
 
 }
