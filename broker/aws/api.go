@@ -27,7 +27,7 @@ type awsProfileEntry struct {
 	Region          string
 }
 
-const defaultMasterRoleName = "CPEBrokerRole"
+const defaultListRolesRoleName = "CPEBrokerRole"
 
 type Broker struct {
 	config                      *configuration.Configuration
@@ -42,21 +42,21 @@ type Broker struct {
 	isUnsealedChannel           chan error
 	profileCredentials          map[string]awsProfileEntry
 	rawCredentialsFile          []byte
-	masterRoleName              string
+	listRolesRoleName           string
 }
 
 func New(userInfo userinfo.UserInfo,
 	credentialsFilename string,
-	masterRoleName string,
+	listRolesRoleName string,
 	logger log.DebugLogger, auditLogger log.DebugLogger) *Broker {
-	if masterRoleName == "" {
-		masterRoleName = defaultMasterRoleName
+	if listRolesRoleName == "" {
+		listRolesRoleName = defaultListRolesRoleName
 	}
 	return &Broker{userInfo: userInfo,
 		credentialsFilename:         credentialsFilename,
 		logger:                      logger,
 		auditLogger:                 auditLogger,
-		masterRoleName:              masterRoleName,
+		listRolesRoleName:           listRolesRoleName,
 		userAllowedCredentialsCache: make(map[string]userAllowedCredentialsCacheEntry),
 		accountRoleCache:            make(map[string]accountRoleCacheEntry),
 		isUnsealedChannel:           make(chan error, 1),

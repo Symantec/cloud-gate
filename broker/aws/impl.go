@@ -215,7 +215,7 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 }
 
 func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, error) {
-	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, b.masterRoleName, "brokermaster")
+	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, b.listRolesRoleName, "brokermaster")
 	if err != nil {
 		b.logger.Debugf(0, "cannot assume master role for account %s, err=%s", accountName, err)
 		return nil, err
