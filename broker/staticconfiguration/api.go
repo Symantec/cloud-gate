@@ -10,6 +10,7 @@ type BaseConfig struct {
 	TLSCertFilename                   string        `yaml:"tls_cert_filename"`
 	TLSKeyFilename                    string        `yaml:"tls_key_filename"`
 	AWSCredentialsFilename            string        `yaml:"aws_credentials_filename"`
+	AWSMasterRoleName                 string        `yaml:"aws_master_role_name"`
 	AccountConfigurationUrl           string        `yaml:"account_configuration_url"`
 	AccountConfigurationCheckInterval time.Duration `yaml:"account_configuration_check_interval"`
 	ClientCAFilename                  string        `yaml:"client_ca_filename"`
