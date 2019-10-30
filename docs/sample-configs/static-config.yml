@@ -1,0 +1,32 @@
+base:
+   service_port: 443  #the service port
+   status_port: 6930  #the admin port
+   tls_cert_filename: /etc/pki/tls/certs/cloud-gate_with_chain.pem #cert and intermediate certs in pem format
+   tls_key_filename: /etc/pki/tls/private/cloud-gate.key #key in perm format
+   aws_credentials_filename: /etc/cloud-gate/creds.new.asc 
+   account_configuration_url: https://$GIT_BASE_REPO/$TEAMNAME/cloud-gate-config/raw/master/config/accounts.yml
+   account_configuration_check_interval: 60s
+   client_ca_filename: /etc/pki/tls/certs/keymaster-ca-bundle.pem
+   data_directory: /var/lib/cloud-gate
+   shared_data_directory: /usr/share/cloud-gate
+   #the cluster shared secret filename is a file that contains a set of
+   # shared secrets used to verify/sign the cookies writen by cloudgate
+   # The format of this file is one raw secret per line.
+   # The simplest way to build this is via "openssl rand -base64 32"
+   cluster_shared_secret_filename: /etc/cloud-gate/shared-secrets 
+openid:
+   client_id: "YYYYYYYYYYYYYYYYYYYY"
+   client_secret: "YYYYYYYYYYYYYYYYYYYY"
+   provider_url: "https://keymaster.example.com"
+   auth_url: "https://keymaster.example.com/idp/oauth2/authorize"
+   token_url: "https://keymaster.example.com/idp/oauth2/token"
+   userinfo_url: "https://keymaster.example.com/idp/oauth2/userinfo"
+   scopes: "openid mail profile"
+ldap:
+   bind_username: "ADBASE\\cpe.someusername"
+   bind_password: "XXXXXXXXXXXXXXXXXXXX"
+   ldap_target_urls: "ldaps://ad.example.com"
+   user_search_base_dns: ["ou=People,dc=example,dc=com"]
+   user_search_filter: "(&(sAMAccountName=%s))"
+   group_search_base_dns: ["ou=groups,dc=example,dc=com"]
+   group_seach_filter: "(&(objectClass=posixGroup)(memberUid=%s))"

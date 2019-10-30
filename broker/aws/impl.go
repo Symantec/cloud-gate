@@ -29,7 +29,6 @@ import (
 
 // TODO: these should come in from config
 const masterAWSProfileName = "broker-master"
-const masterRoleName = "CPEBrokerRole"
 
 func (b *Broker) accountIDFromName(accountName string) (string, error) {
 	for _, account := range b.config.AWS.Account {
@@ -216,7 +215,7 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 }
 
 func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, error) {
-	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, masterRoleName, "brokermaster")
+	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, b.listRolesRoleName, "brokermaster")
 	if err != nil {
 		b.logger.Debugf(0, "cannot assume master role for account %s, err=%s", accountName, err)
 		return nil, err
