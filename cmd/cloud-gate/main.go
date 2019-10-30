@@ -11,16 +11,16 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/Symantec/Dominator/lib/log/debuglogger"
-	"github.com/Symantec/Dominator/lib/log/serverlogger"
-	"github.com/Symantec/Dominator/lib/log/teelogger"
+	"github.com/Cloud-Foundations/Dominator/lib/log/debuglogger"
+	"github.com/Cloud-Foundations/Dominator/lib/log/serverlogger"
+	"github.com/Cloud-Foundations/Dominator/lib/log/teelogger"
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/aws"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/httpd"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
 	"github.com/Symantec/cloud-gate/lib/userinfo/ldap"
-	"github.com/Symantec/tricorder/go/tricorder"
+	"github.com/Cloud-Foundations/tricorder/go/tricorder"
 )
 
 var (

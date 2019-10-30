@@ -4,8 +4,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/Symantec/Dominator/lib/configwatch"
-	"github.com/Symantec/Dominator/lib/log"
+	"github.com/Cloud-Foundations/Dominator/lib/configwatch"
+	"github.com/Cloud-Foundations/Dominator/lib/log"
 	"github.com/Symantec/cloud-gate/lib/constants"
 	"gopkg.in/yaml.v2"
 )

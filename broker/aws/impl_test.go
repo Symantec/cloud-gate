@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Symantec/Dominator/lib/log/debuglogger"
+	"github.com/Cloud-Foundations/Dominator/lib/log/debuglogger"
 	"github.com/Symantec/cloud-gate/broker"
 )
 
