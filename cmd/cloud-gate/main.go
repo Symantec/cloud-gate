@@ -71,6 +71,7 @@ func main() {
 
 	brokers := map[string]broker.Broker{
 		"aws": aws.New(userInfo, staticConfig.Base.AWSCredentialsFilename,
+			staticConfig.Base.AWSListRolesRoleName,
 			logger, auditLogger),
 	}
 	for brokerName, broker := range brokers {
