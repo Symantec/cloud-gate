@@ -50,6 +50,7 @@ var (
 	oldBotoCompat        = flag.Bool("oldBotoCompat", false, "add aws_security_token for OLD boto installations (not recommended)")
 	includeRoleREFilter  = flag.String("includeRoleREFilter", "", "Positive RE filter that role/account MUST match")
 	excludeRoleREFilter  = flag.String("excludeRoleREFilter", "", "Negative RE filter. Acount/Role values matching will not be generated")
+	logLevel             = flag.Uint("logLevel", 1, "Verbosity of logging")
 )
 
 type AppConfigFile struct {
@@ -76,6 +77,12 @@ type AWSCredentialsJSON struct {
 	SessionToken string    `json:"sessionToken"`
 	Region       string    `json:"region,omitempty"`
 	Expiration   time.Time `json:"cloudgate_comment_expiration,omitempty"`
+}
+
+func loggerPrintf(level uint, format string, v ...interface{}) {
+	if level <= *logLevel {
+		log.Printf(format, v...)
+	}
 }
 
 func loadVerifyConfigFile(filename string) (AppConfigFile, error) {
@@ -127,7 +134,7 @@ const failureSleepDuration = 60 * time.Second
 func getAndUpdateCreds(client *http.Client, baseUrl, accountName, roleName string,
 	cfg *ini.File, outputProfilePrefix string,
 	lowerCaseProfileName bool) error {
-	log.Printf("account=%s, role=%s", accountName, roleName)
+	loggerPrintf(1, "Getting creds for account=%s, role=%s", accountName, roleName)
 
 	values := url.Values{"accountName": {accountName}, "roleName": {roleName}}
 	req, err := http.NewRequest("POST", baseUrl+"/generatetoken", strings.NewReader(values.Encode()))
@@ -228,6 +235,7 @@ func setupHttpClient(cert tls.Certificate) (*http.Client, error) {
 }
 
 func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, error) {
+	loggerPrintf(4, "Top of getCerts")
 	// Do GET something
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
@@ -244,6 +252,14 @@ func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, erro
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusUnauthorized {
+			log.Printf("getAccountsList, Failed Unauthorized, Please check your certificate contiguration")
+		}
+		log.Printf("getAccountsList, Failed to Get accounts Status=%d", resp.StatusCode)
+		return nil, fmt.Errorf("getAccountsList: Failed to Get accounts Status=%d", resp.StatusCode)
+	}
+
 	// Dump response
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -252,9 +268,10 @@ func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, erro
 	var accountList getAccountInfo
 	err = json.Unmarshal(data, &accountList)
 	if err != nil {
+		log.Printf("Error decoding account Data, data=%s", data)
 		log.Fatal(err)
 	}
-	log.Printf("%+v", accountList)
+	loggerPrintf(2, "accountList=%v", accountList)
 	return &accountList, nil
 
 }
@@ -262,22 +279,24 @@ func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, erro
 func getCerts(cert tls.Certificate, baseUrl string,
 	credentialFilename string, askAdminRoles bool,
 	outputProfilePrefix string, lowerCaseProfileName bool,
-	includeRoleRE *regexp.Regexp, excludeRoleRE *regexp.Regexp) error {
+	includeRoleRE *regexp.Regexp, excludeRoleRE *regexp.Regexp) (int, error) {
 
+	loggerPrintf(4, "Top of getCerts")
 	credFile, err := setupCredentialFile(credentialFilename)
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("getCerts error from CredentialFile: %s", err)
 	}
 
 	client, err := setupHttpClient(cert)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	accountList, err := getAccountsList(client, baseUrl)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
+	credentialsGenerated := 0
 	for _, account := range accountList.CloudAccounts {
 		for _, roleName := range account.AvailableRoles {
 			adminRole, err := regexp.Match("(?i)admin", []byte(roleName))
@@ -308,6 +327,7 @@ func getCerts(cert tls.Certificate, baseUrl string,
 				}
 				log.Fatalf("error on getAnd UpdateCreds=%s", err)
 			}
+			credentialsGenerated += 1
 		}
 	}
 	err = credFile.SaveTo(credentialFilename)
@@ -315,7 +335,7 @@ func getCerts(cert tls.Certificate, baseUrl string,
 		log.Fatal(err)
 	}
 
-	return nil
+	return credentialsGenerated, nil
 }
 
 //Assumes cert is pem ecoded
@@ -399,10 +419,10 @@ func main() {
 		}
 	}
 
-	log.Printf("Configuration Loaded")
+	loggerPrintf(1, "Configuration Loaded")
 	certNotAfter, err := getCertExpirationTime(*certFilename)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error on getCertExpirationTime: %s", err)
 	}
 	if certNotAfter.Before(time.Now()) {
 		log.Fatalf("keymaster certificate is expired, please run keymaster binary. Certificate expired at %s", certNotAfter)
@@ -411,9 +431,9 @@ func main() {
 	for certNotAfter.After(time.Now()) {
 		cert, err := tls.LoadX509KeyPair(*certFilename, *keyFilename)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Error Loading X509KeyPair: %s", err)
 		}
-		err = getCerts(cert, config.BaseURL, *crededentialFilename,
+		credentialCount, err := getCerts(cert, config.BaseURL, *crededentialFilename,
 			*askAdminRoles, config.OutputProfilePrefix, *lowerCaseProfileName,
 			includeRoleRE, excludeRoleRE)
 		if err != nil {
@@ -421,7 +441,7 @@ func main() {
 			log.Printf("Failure getting certs, retrying in (%s)", failureSleepDuration)
 			time.Sleep(failureSleepDuration)
 		} else {
-			log.Printf("Credentials Successfully generated sleeping for (%s)", sleepDuration)
+			log.Printf("%d credentials successfully generated. Sleeping for (%s)", credentialCount, sleepDuration)
 			time.Sleep(sleepDuration)
 		}
 		certNotAfter, err = getCertExpirationTime(*certFilename)
