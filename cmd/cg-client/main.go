@@ -59,6 +59,8 @@ type AppConfigFile struct {
 	LowerCaseProfileName bool   `yaml:"lower_case_profile_name"`
 	IncludeRoleREFilter  string `yaml:"include_role_re_filter"`
 	ExcludeRoleREFilter  string `yaml:"exclude_role_re_filter"`
+	CertFilename         string `yaml:"cert_filename"`
+	KeyFilename          string `yaml:"key_filename"`
 }
 
 type cloudAccountInfo struct {
@@ -235,7 +237,7 @@ func setupHttpClient(cert tls.Certificate) (*http.Client, error) {
 }
 
 func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, error) {
-	loggerPrintf(4, "Top of getCerts")
+	loggerPrintf(4, "Top of getAcountsList")
 	// Do GET something
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
@@ -254,9 +256,8 @@ func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, erro
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusUnauthorized {
-			log.Printf("getAccountsList, Failed Unauthorized, Please check your certificate contiguration")
+			log.Printf("getAccountsList, Failed Unauthorized, Please check your certificate configuration.")
 		}
-		log.Printf("getAccountsList, Failed to Get accounts Status=%d", resp.StatusCode)
 		return nil, fmt.Errorf("getAccountsList: Failed to Get accounts Status=%d", resp.StatusCode)
 	}
 
@@ -397,6 +398,20 @@ func main() {
 	if *baseURL != "" {
 		config.BaseURL = *baseURL
 	}
+	// Because we want to display a sensible error message when using flags
+	// and we cannot tell using the flags package if a value has been modified
+	// we compare the processed value with the default so that any non-default
+	// value entered on the cli overrides the values in the config.
+	if *certFilename == filepath.Join(getUserHomeDir(), ".ssl", "keymaster.cert") {
+		if config.CertFilename != "" {
+			*certFilename = config.CertFilename
+		}
+	}
+	if *keyFilename == filepath.Join(getUserHomeDir(), ".ssl", "keymaster.key") {
+		if config.KeyFilename != "" {
+			*keyFilename = config.KeyFilename
+		}
+	}
 
 	var includeRoleRE *regexp.Regexp
 	if *includeRoleREFilter != "" {
@@ -420,6 +435,8 @@ func main() {
 	}
 
 	loggerPrintf(1, "Configuration Loaded")
+	loggerPrintf(2, "config=%+v", config)
+	loggerPrintf(2, "Using Cert=%s, key=%s", *certFilename, *keyFilename)
 	certNotAfter, err := getCertExpirationTime(*certFilename)
 	if err != nil {
 		log.Fatalf("Error on getCertExpirationTime: %s", err)
