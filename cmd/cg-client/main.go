@@ -398,7 +398,10 @@ func main() {
 	if *baseURL != "" {
 		config.BaseURL = *baseURL
 	}
-	// this is kind of hacky.. this should be func
+	// Because the want to display a sensible error message when using flags
+	// and we cannot tell using the flags package if a value has been modified
+	// we compare the processed value with the default so that any non-default
+	// value entered on the cli overrides the values in the config.
 	if *certFilename == filepath.Join(getUserHomeDir(), ".ssl", "keymaster.cert") {
 		if config.CertFilename != "" {
 			*certFilename = config.CertFilename
