@@ -237,7 +237,7 @@ func setupHttpClient(cert tls.Certificate) (*http.Client, error) {
 }
 
 func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, error) {
-	loggerPrintf(4, "Top of getCerts")
+	loggerPrintf(4, "Top of getAcountsList")
 	// Do GET something
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
@@ -256,9 +256,8 @@ func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, erro
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusUnauthorized {
-			log.Printf("getAccountsList, Failed Unauthorized, Please check your certificate contiguration")
+			log.Printf("getAccountsList, Failed Unauthorized, Please check your certificate configuration.")
 		}
-		log.Printf("getAccountsList, Failed to Get accounts Status=%d", resp.StatusCode)
 		return nil, fmt.Errorf("getAccountsList: Failed to Get accounts Status=%d", resp.StatusCode)
 	}
 
