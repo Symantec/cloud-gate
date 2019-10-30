@@ -4,7 +4,7 @@ import (
 	"crypto/x509"
 	"net/url"
 
-	"github.com/Symantec/Dominator/lib/log"
+	"github.com/Cloud-Foundations/Dominator/lib/log"
 )
 
 type UserInfo struct {
