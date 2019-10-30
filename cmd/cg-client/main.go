@@ -59,6 +59,8 @@ type AppConfigFile struct {
 	LowerCaseProfileName bool   `yaml:"lower_case_profile_name"`
 	IncludeRoleREFilter  string `yaml:"include_role_re_filter"`
 	ExcludeRoleREFilter  string `yaml:"exclude_role_re_filter"`
+	CertFilename         string `yaml:"cert_filename"`
+	KeyFilename          string `yaml:"key_filename"`
 }
 
 type cloudAccountInfo struct {
@@ -397,6 +399,17 @@ func main() {
 	if *baseURL != "" {
 		config.BaseURL = *baseURL
 	}
+	// this is kind of hacky.. this should be func
+	if *certFilename == filepath.Join(getUserHomeDir(), ".ssl", "keymaster.cert") {
+		if config.CertFilename != "" {
+			*certFilename = config.CertFilename
+		}
+	}
+	if *keyFilename == filepath.Join(getUserHomeDir(), ".ssl", "keymaster.key") {
+		if config.KeyFilename != "" {
+			*keyFilename = config.KeyFilename
+		}
+	}
 
 	var includeRoleRE *regexp.Regexp
 	if *includeRoleREFilter != "" {
@@ -420,6 +433,8 @@ func main() {
 	}
 
 	loggerPrintf(1, "Configuration Loaded")
+	loggerPrintf(2, "config=%+v", config)
+	loggerPrintf(2, "Using Cert=%s, key=%s", *certFilename, *keyFilename)
 	certNotAfter, err := getCertExpirationTime(*certFilename)
 	if err != nil {
 		log.Fatalf("Error on getCertExpirationTime: %s", err)
