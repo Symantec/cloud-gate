@@ -235,6 +235,7 @@ func setupHttpClient(cert tls.Certificate) (*http.Client, error) {
 }
 
 func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, error) {
+	loggerPrintf(4, "Top of getCerts")
 	// Do GET something
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
@@ -251,6 +252,14 @@ func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, erro
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusUnauthorized {
+			log.Printf("getAccountsList, Failed Unauthorized, Please check your certificate contiguration")
+		}
+		log.Printf("getAccountsList, Failed to Get accounts Status=%d", resp.StatusCode)
+		return nil, fmt.Errorf("getAccountsList: Failed to Get accounts Status=%d", resp.StatusCode)
+	}
+
 	// Dump response
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -259,6 +268,7 @@ func getAccountsList(client *http.Client, baseUrl string) (*getAccountInfo, erro
 	var accountList getAccountInfo
 	err = json.Unmarshal(data, &accountList)
 	if err != nil {
+		log.Printf("Error decoding account Data, data=%s", data)
 		log.Fatal(err)
 	}
 	loggerPrintf(2, "accountList=%v", accountList)
