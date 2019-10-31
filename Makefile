@@ -43,4 +43,4 @@ format-imports:
 test:
 	@find * -name '*_test.go' |\
 	sed -e 's@^@github.com/Symantec/cloud-gate/@' -e 's@/[^/]*$$@@' |\
-	sort -u | xargs -r go test
+	sort -u | xargs go test
