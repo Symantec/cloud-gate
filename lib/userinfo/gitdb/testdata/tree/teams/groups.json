@@ -1,0 +1,14 @@
+[
+    {
+        "Name": "team0",
+        "UserMembers": [
+            "userA"
+        ]
+    },
+    {
+        "Name": "team1",
+        "UserMembers": [
+            "userB"
+        ]
+    }
+]
