@@ -14,13 +14,6 @@ func TestFlat(t *testing.T) {
 	uinfo.testDB(t)
 }
 
-func TestNoFiles(t *testing.T) {
-	uinfo := UserInfo{logger: testlogger.New(t)}
-	if err := uinfo.loadDatabase("testdata"); err == nil {
-		t.Fatal("error not returned for unpopulated directory tree")
-	}
-}
-
 func TestLoop(t *testing.T) {
 	uinfo := UserInfo{logger: testlogger.New(t)}
 	if err := uinfo.loadDatabase("testdata/loop"); err != nil {
