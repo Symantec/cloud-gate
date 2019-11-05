@@ -102,6 +102,9 @@ func loadDirectory(dirname string, loadState *loadStateType,
 		return err
 	}
 	for _, filename := range filenames {
+		if filename == ".git" {
+			continue
+		}
 		pathname := filepath.Join(dirname, filename)
 		if fi, err := os.Stat(pathname); err != nil {
 			return err
