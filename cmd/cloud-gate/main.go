@@ -1,9 +1,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"log"
+	stdlog "log"
 	"log/syslog"
 	"os"
 	"path/filepath"
@@ -11,21 +12,53 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/Cloud-Foundations/Dominator/lib/log"
 	"github.com/Cloud-Foundations/Dominator/lib/log/debuglogger"
 	"github.com/Cloud-Foundations/Dominator/lib/log/serverlogger"
 	"github.com/Cloud-Foundations/Dominator/lib/log/teelogger"
+	"github.com/Cloud-Foundations/tricorder/go/tricorder"
 	"github.com/Symantec/cloud-gate/broker"
 	"github.com/Symantec/cloud-gate/broker/aws"
 	"github.com/Symantec/cloud-gate/broker/configuration"
 	"github.com/Symantec/cloud-gate/broker/httpd"
 	"github.com/Symantec/cloud-gate/broker/staticconfiguration"
+	"github.com/Symantec/cloud-gate/lib/userinfo"
+	"github.com/Symantec/cloud-gate/lib/userinfo/gitdb"
 	"github.com/Symantec/cloud-gate/lib/userinfo/ldap"
-	"github.com/Cloud-Foundations/tricorder/go/tricorder"
 )
 
 var (
-	configFilename = flag.String("config", "/etc/cloud-gate/static-config.yml", "Configuration filename")
+	configFilename = flag.String("config", "/etc/cloud-gate/static-config.yml",
+		"Configuration filename")
 )
+
+func getUserInfo(config *staticconfiguration.StaticConfiguration,
+	logger log.DebugLogger) (userinfo.UserInfo, error) {
+	if config.Ldap.LDAPTargetURLs != "" {
+		timeoutSecs := 15
+		userInfo, err := ldap.New(
+			strings.Split(config.Ldap.LDAPTargetURLs, ","),
+			config.Ldap.BindUsername,
+			config.Ldap.BindPassword,
+			config.Ldap.UserSearchFilter,
+			config.Ldap.UserSearchBaseDNs,
+			uint(timeoutSecs), nil, logger)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create ldap userinfo: %s", err)
+		}
+		return userInfo, nil
+	}
+	if config.GitDB.LocalRepositoryDirectory != "" {
+		userInfo, err := gitdb.New(config.GitDB.RepositoryURL,
+			config.GitDB.LocalRepositoryDirectory,
+			config.GitDB.CheckInterval, logger)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create GitDB userinfo: %s", err)
+		}
+		return userInfo, nil
+	}
+	return nil, errors.New("no userinfo database specified")
+}
 
 func main() {
 	flag.Parse()
@@ -41,7 +74,8 @@ func main() {
 		logger.Printf("Could not open connection to local syslog daemon")
 		syslogWriter = nil
 	}
-	auditLogger := teelogger.New(logger, debuglogger.Upgrade(log.New(syslogWriter, "", 0)))
+	auditLogger := teelogger.New(logger,
+		debuglogger.Upgrade(stdlog.New(syslogWriter, "", 0)))
 
 	staticConfig, err := staticconfiguration.LoadVerifyConfigFile(*configFilename)
 	if err != nil {
@@ -49,15 +83,9 @@ func main() {
 	}
 	logger.Debugf(1, "staticconfig=%+v", staticConfig)
 
-	timeoutSecs := 15
-	userInfo, err := ldap.New(strings.Split(staticConfig.Ldap.LDAPTargetURLs, ","),
-		staticConfig.Ldap.BindUsername,
-		staticConfig.Ldap.BindPassword,
-		staticConfig.Ldap.UserSearchFilter,
-		staticConfig.Ldap.UserSearchBaseDNs,
-		uint(timeoutSecs), nil, logger)
+	userInfo, err := getUserInfo(staticConfig, logger)
 	if err != nil {
-		logger.Fatalf("Cannot create ldap userinfo: %s\n", err)
+		logger.Fatalln(err)
 	}
 	logger.Debugf(1, "userinfo=%+v", userInfo)
 

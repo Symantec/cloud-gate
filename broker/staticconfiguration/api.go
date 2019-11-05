@@ -20,6 +20,12 @@ type BaseConfig struct {
 	SharedSecrets                     []string
 }
 
+type GitDatabaseConfig struct {
+	CheckInterval            time.Duration `yaml:"check_interval"`
+	LocalRepositoryDirectory string        `yaml:"local_repository_directory"`
+	RepositoryURL            string        `yaml:"repository_url"`
+}
+
 type OpenIDConfig struct {
 	ClientID     string `yaml:"client_id"`
 	ClientSecret string `yaml:"client_secret"`
@@ -42,6 +48,7 @@ type UserInfoLDAPSource struct {
 
 type StaticConfiguration struct {
 	Base   BaseConfig
+	GitDB  GitDatabaseConfig
 	OpenID OpenIDConfig
 	Ldap   UserInfoLDAPSource
 }
