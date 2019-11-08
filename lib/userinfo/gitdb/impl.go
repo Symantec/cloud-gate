@@ -92,6 +92,27 @@ func loadDirectory(dirname string, loadState *loadStateType,
 				group.Name, dirname)
 		}
 	}
+	return nil
+}
+
+func newDB(repositoryURL, localRepositoryDir string,
+	checkInterval time.Duration, logger log.DebugLogger) (*UserInfo, error) {
+	directoryChannel, err := repowatch.Watch(repositoryURL,
+		localRepositoryDir, checkInterval, "cloud-gate/gitdb",
+		logger)
+	if err != nil {
+		return nil, err
+	}
+	userInfo := &UserInfo{logger: logger}
+	go userInfo.handleNotifications(directoryChannel)
+	return userInfo, nil
+}
+
+func walkDirectory(dirname string, loadState *loadStateType,
+	logger log.DebugLogger) error {
+	if err := loadDirectory(dirname, loadState, logger); err != nil {
+		return err
+	}
 	directory, err := os.Open(dirname)
 	if err != nil {
 		return err
@@ -109,25 +130,12 @@ func loadDirectory(dirname string, loadState *loadStateType,
 		if fi, err := os.Stat(pathname); err != nil {
 			return err
 		} else if fi.IsDir() {
-			if err := loadDirectory(pathname, loadState, logger); err != nil {
+			if err := walkDirectory(pathname, loadState, logger); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
-}
-
-func newDB(repositoryURL, localRepositoryDir string,
-	checkInterval time.Duration, logger log.DebugLogger) (*UserInfo, error) {
-	directoryChannel, err := repowatch.Watch(repositoryURL,
-		localRepositoryDir, checkInterval, "cloud-gate/gitdb",
-		logger)
-	if err != nil {
-		return nil, err
-	}
-	userInfo := &UserInfo{logger: logger}
-	go userInfo.handleNotifications(directoryChannel)
-	return userInfo, nil
 }
 
 func (loadState *loadStateType) processGroup(group *groupType,
@@ -196,7 +204,7 @@ func (uinfo *UserInfo) loadDatabase(dirname string) error {
 		groupsPerUser: make(map[string]map[string]struct{}),
 		groupsMap:     make(map[string]*groupType),
 	}
-	if err := loadDirectory(dirname, loadState, uinfo.logger); err != nil {
+	if err := walkDirectory(dirname, loadState, uinfo.logger); err != nil {
 		return err
 	}
 	for _, group := range loadState.groupsMap {
