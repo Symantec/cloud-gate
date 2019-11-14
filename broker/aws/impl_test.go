@@ -10,6 +10,8 @@ import (
 	"github.com/Symantec/cloud-gate/broker"
 )
 
+const credentialsFilename = "/credentials-filename"
+
 const validTestPlaintextCredentials = `
 [broker-master]
 aws_access_key_id = aaaaaaaaaaaaaaaa
@@ -36,8 +38,8 @@ func setupCachedBroker() *Broker {
 	slogger := stdlog.New(os.Stderr, "", stdlog.LstdFlags)
 	logger := debuglogger.New(slogger)
 	b := &Broker{ //userInfo: userInfo,
-		//credentialsFilename:         credentialsFilename,
-		logger: logger,
+		credentialsFilename: credentialsFilename,
+		logger:              logger,
 		//syslog:                      syslog,
 		userAllowedCredentialsCache: make(map[string]userAllowedCredentialsCacheEntry),
 		accountRoleCache:            make(map[string]accountRoleCacheEntry),

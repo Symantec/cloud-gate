@@ -20,6 +20,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/sts"
@@ -28,7 +30,10 @@ import (
 )
 
 // TODO: these should come in from config
-const masterAWSProfileName = "broker-master"
+const (
+	defaultRegion        = "us-west-2"
+	masterAWSProfileName = "broker-master"
+)
 
 func (b *Broker) accountIDFromName(accountName string) (string, error) {
 	for _, account := range b.config.AWS.Account {
@@ -53,13 +58,11 @@ func (b *Broker) accountHumanNameFromName(accountName string) (string, error) {
 
 func (b *Broker) processNewUnsealingSecret(secret string) (ready bool, err error) {
 	// if already loaded then fast quit
-	//probably add some mutex here
-	if len(b.profileCredentials) > 0 {
+	// probably add some mutex here
+	if b.credentialsFilename == "" || len(b.profileCredentials) > 0 {
 		return true, nil
 	}
-
 	decbuf := bytes.NewBuffer(b.rawCredentialsFile)
-
 	armorBlock, err := armor.Decode(decbuf)
 	if err != nil {
 		b.logger.Printf("Cannot decode armored file")
@@ -68,8 +71,8 @@ func (b *Broker) processNewUnsealingSecret(secret string) (ready bool, err error
 	password := []byte(secret)
 	failed := false
 	prompt := func(keys []openpgp.Key, symmetric bool) ([]byte, error) {
-		// If the given passphrase isn't correct, the function will be called again, forever.
-		// This method will fail fast.
+		// If the given passphrase isn't correct, the function will be called
+		// again, forever. This method will fail fast.
 		// Ref: https://godoc.org/golang.org/x/crypto/openpgp#PromptFunction
 		if failed {
 			return nil, errors.New("decryption failed")
@@ -82,21 +85,22 @@ func (b *Broker) processNewUnsealingSecret(secret string) (ready bool, err error
 		b.logger.Printf("cannot read message")
 		return false, err
 	}
-
 	plaintextBytes, err := ioutil.ReadAll(md.UnverifiedBody)
 	if err != nil {
 		return false, err
 	}
-
 	err = b.loadCredentialsFrombytes(plaintextBytes)
 	if err != nil {
 		return false, nil
 	}
-
 	return true, nil
 }
 
 func (b *Broker) loadCredentialsFile() (err error) {
+	if b.credentialsFilename == "" {
+		b.isUnsealedChannel <- nil
+		return nil
+	}
 	b.rawCredentialsFile, err = ioutil.ReadFile(b.credentialsFilename)
 	if err != nil {
 		return nil
@@ -113,11 +117,12 @@ func (b *Broker) loadCredentialsFrombytes(credentials []byte) error {
 	if err != nil {
 		return err
 	}
-	defaultRegion := "us-west-2"
 	sections := cfg.SectionStrings()
 	for _, profileName := range sections {
-		accessKeyID := cfg.Section(profileName).Key("aws_access_key_id").String()
-		secretAccessKey := cfg.Section(profileName).Key("aws_secret_access_key").String()
+		accessKeyID := cfg.Section(profileName).Key(
+			"aws_access_key_id").String()
+		secretAccessKey := cfg.Section(profileName).Key(
+			"aws_secret_access_key").String()
 		if len(accessKeyID) < 3 || len(secretAccessKey) < 3 {
 			continue
 		}
@@ -125,13 +130,10 @@ func (b *Broker) loadCredentialsFrombytes(credentials []byte) error {
 		if region == "" {
 			region = defaultRegion
 		}
-
 		entry := awsProfileEntry{AccessKeyID: accessKeyID,
 			SecretAccessKey: secretAccessKey,
 			Region:          region}
-
 		b.profileCredentials[profileName] = entry
-
 	}
 	if len(b.profileCredentials) < 1 {
 		return errors.New("nothing loaded")
@@ -141,19 +143,39 @@ func (b *Broker) loadCredentialsFrombytes(credentials []byte) error {
 	return nil
 }
 
-// Returns a aws static credentials and region name, returns nil if credentials cannot be found
-func (b *Broker) getCredentialsFromProfile(profileName string) (*credentials.Credentials, string, error) {
+// Returns an AWS *Credentials and region name, returns nil if credentials
+// cannot be found.
+func (b *Broker) getCredentialsFromProfile(profileName string) (
+	*credentials.Credentials, string, error) {
 	profileEntry, ok := b.profileCredentials[profileName]
 	if !ok {
+		if profileName == masterAWSProfileName {
+			return b.getCredentialsFromMetaData()
+		}
 		return nil, "", errors.New("invalid credentials name")
 	}
-	sessionCredentials := credentials.NewStaticCredentials(profileEntry.AccessKeyID, profileEntry.SecretAccessKey, "")
+	sessionCredentials := credentials.NewStaticCredentials(
+		profileEntry.AccessKeyID, profileEntry.SecretAccessKey, "")
 	return sessionCredentials, profileEntry.Region, nil
+}
+
+func (b *Broker) getCredentialsFromMetaData() (
+	*credentials.Credentials, string, error) {
+	creds := credentials.NewCredentials(&ec2rolecreds.EC2RoleProvider{
+		Client:       ec2metadata.New(session.New(&aws.Config{})),
+		ExpiryWindow: time.Minute,
+	})
+	if creds == nil {
+		return nil, "", errors.New("unable to get EC2 role credentials")
+	}
+	return creds, defaultRegion, nil
 }
 
 const profileAssumeRoleDurationSeconds = 3600
 
-func (b *Broker) withProfileAssumeRole(accountName string, profileName string, roleName string, roleSessionName string) (*sts.AssumeRoleOutput, string, error) {
+func (b *Broker) withProfileAssumeRole(accountName string, profileName string,
+	roleName string,
+	roleSessionName string) (*sts.AssumeRoleOutput, string, error) {
 	sessionCredentials, region, err := b.getCredentialsFromProfile(profileName)
 	if err != nil {
 		return nil, "", err
@@ -161,26 +183,29 @@ func (b *Broker) withProfileAssumeRole(accountName string, profileName string, r
 	if sessionCredentials == nil {
 		return nil, "", fmt.Errorf("No valid profile=%s", profileName)
 	}
-
-	// This is strange, no error calling?
-	masterSession := session.Must(session.NewSession(aws.NewConfig().WithCredentials(sessionCredentials).WithRegion(region)))
+	masterSession, err := session.NewSession(
+		aws.NewConfig().WithCredentials(sessionCredentials).WithRegion(region))
+	if err != nil {
+		return nil, "", err
+	}
+	if masterSession == nil {
+		return nil, "", errors.New("masterSession == nil")
+	}
 	stsClient := sts.New(masterSession)
-
 	b.logger.Debugf(2, "stsClient=%v", stsClient)
-
 	var durationSeconds int64
 	durationSeconds = profileAssumeRoleDurationSeconds
 	accountID, err := b.accountIDFromName(accountName)
 	if err != nil {
 		return nil, "", err
 	}
-
 	arnRolePrefix := "arn:aws:iam"
 	if strings.HasPrefix(region, "us-gov-") {
 		arnRolePrefix = "arn:aws-us-gov:iam"
 	}
 	roleArn := fmt.Sprintf("%s::%s:role/%s", arnRolePrefix, accountID, roleName)
-
+	b.logger.Debugf(2, "calling sts.AssumeRole(role=%s, sessionName=%s)\n",
+		roleArn, roleSessionName)
 	assumeRoleInput := sts.AssumeRoleInput{
 		DurationSeconds: &durationSeconds,
 		RoleArn:         &roleArn,
@@ -215,6 +240,8 @@ func (b *Broker) withSessionGetAWSRoleList(validSession *session.Session) ([]str
 }
 
 func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, error) {
+	b.logger.Debugf(1, "top of masterGetAWSRolesForAccount for account =%s",
+		accountName)
 	assumeRoleOutput, region, err := b.withProfileAssumeRole(accountName, masterAWSProfileName, b.listRolesRoleName, "brokermaster")
 	if err != nil {
 		b.logger.Debugf(0, "cannot assume master role for account %s, err=%s", accountName, err)
@@ -230,7 +257,8 @@ func (b *Broker) masterGetAWSRolesForAccount(accountName string) ([]string, erro
 }
 
 func (b *Broker) getAWSRolesForAccountNonCached(accountName string) ([]string, error) {
-	b.logger.Debugf(1, "top of getAWSRolesForAccount for account =%s", accountName)
+	b.logger.Debugf(1, "top of getAWSRolesForAccountNonCached for account =%s",
+		accountName)
 	accountRoles, err := b.masterGetAWSRolesForAccount(accountName)
 	if err == nil {
 		return accountRoles, nil
@@ -255,6 +283,8 @@ func (b *Broker) getAWSRolesForAccountNonCached(accountName string) ([]string, e
 const roleCacheDuration = time.Second * 1800
 
 func (b *Broker) getAWSRolesForAccount(accountName string) ([]string, error) {
+	b.logger.Debugf(1, "top of getAWSRolesForAccount for account =%s",
+		accountName)
 	b.accountRoleMutex.Lock()
 	cachedEntry, ok := b.accountRoleCache[accountName]
 	b.accountRoleMutex.Unlock()
@@ -309,8 +339,10 @@ func stringIntersectionNoDups(set1, set2 []string) (intersection []string) {
 }
 
 func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker.PermittedAccount, error) {
-	var groupToAccountName map[string]string
-	groupToAccountName = make(map[string]string)
+	b.logger.Debugf(1,
+		"top of getUserAllowedAccountsFromGroups for userGroups: %v",
+		userGroups)
+	groupToAccountName := make(map[string]string)
 	var groupList []string
 	for _, account := range b.config.AWS.Account {
 		groupName := account.GroupName
@@ -318,13 +350,11 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 			groupName = account.Name
 		}
 		groupName = strings.ToLower(groupName)
-
 		groupToAccountName[groupName] = account.Name
 		groupList = append(groupList, groupName)
 	}
 	var allowedRoles map[string][]string
 	allowedRoles = make(map[string][]string)
-
 	for _, accountName := range groupList {
 		reString := fmt.Sprintf("(?i)^%s-(.*)$", accountName)
 		b.logger.Debugf(2, "reString=%v", reString)
@@ -355,7 +385,6 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 		}
 	}
 	b.logger.Debugf(1, "allowedRoles(post)=%v", allowedRoles)
-
 	var permittedAccounts []broker.PermittedAccount
 	for groupName, allowedRoles := range allowedRoles {
 		accountName, ok := groupToAccountName[groupName]
@@ -372,12 +401,10 @@ func (b *Broker) getUserAllowedAccountsFromGroups(userGroups []string) ([]broker
 			continue
 		}
 		sort.Strings(allowedAndAvailable)
-
 		displayName, err := b.accountHumanNameFromName(accountName)
 		if err != nil {
 			return nil, err
 		}
-
 		var account = broker.PermittedAccount{Name: accountName,
 			HumanName:         displayName,
 			PermittedRoleName: allowedAndAvailable}
