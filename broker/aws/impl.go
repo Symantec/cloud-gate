@@ -147,23 +147,28 @@ func (b *Broker) loadCredentialsFrombytes(credentials []byte) error {
 // cannot be found.
 func (b *Broker) getCredentialsFromProfile(profileName string) (
 	*credentials.Credentials, string, error) {
-	if b.credentialsFilename == "" {
-		creds := credentials.NewCredentials(&ec2rolecreds.EC2RoleProvider{
-			Client:       ec2metadata.New(session.New(&aws.Config{})),
-			ExpiryWindow: time.Minute,
-		})
-		if creds == nil {
-			return nil, "", errors.New("unable to get EC2 role credentials")
-		}
-		return creds, defaultRegion, nil
-	}
 	profileEntry, ok := b.profileCredentials[profileName]
 	if !ok {
+		if profileName == masterAWSProfileName {
+			return b.getCredentialsFromMetaData()
+		}
 		return nil, "", errors.New("invalid credentials name")
 	}
 	sessionCredentials := credentials.NewStaticCredentials(
 		profileEntry.AccessKeyID, profileEntry.SecretAccessKey, "")
 	return sessionCredentials, profileEntry.Region, nil
+}
+
+func (b *Broker) getCredentialsFromMetaData() (
+	*credentials.Credentials, string, error) {
+	creds := credentials.NewCredentials(&ec2rolecreds.EC2RoleProvider{
+		Client:       ec2metadata.New(session.New(&aws.Config{})),
+		ExpiryWindow: time.Minute,
+	})
+	if creds == nil {
+		return nil, "", errors.New("unable to get EC2 role credentials")
+	}
+	return creds, defaultRegion, nil
 }
 
 const profileAssumeRoleDurationSeconds = 3600
