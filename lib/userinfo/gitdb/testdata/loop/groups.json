@@ -1,0 +1,28 @@
+[
+    {
+        "GroupMembers": [
+            "project1",
+            "team0"
+        ],
+        "Name": "project0"
+    },
+    {
+        "GroupMembers": [
+            "project0",
+            "team1"
+        ],
+        "Name": "project1"
+    },
+    {
+        "Name": "team0",
+        "UserMembers": [
+            "userA"
+        ]
+    },
+    {
+        "Name": "team1",
+        "UserMembers": [
+            "userB"
+        ]
+    }
+]
